@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>用紗量管理</title>
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=1">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1">
+<link rel="manifest" href="manifest.json?v=1">
+<meta name="theme-color" content="#2f5d62">
+
+<style>
+:root{box-sizing:border-box;--bg:#f6f4ef;--card:#fff;--text:#222;--mute:#6b6b6b;--line:#ddd8cc;--accent:#2f5d62;--accent-t:#fff;--warn:#b3261e;--res:#eaf1f1;--abg:#fff3cd;--abd:#e0a100;--atx:#7a5200;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a1a;--card:#222727;--text:#eee;--mute:#a0a8a8;--line:#394040;--accent:#7fb5ba;--accent-t:#102022;--warn:#ff8a80;--res:#1c3033;--abg:#3a3015;--abd:#c99a1c;--atx:#ffd98a;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+h1{font-size:1.35rem;margin:0}
+.tabs{display:flex;gap:6px}
+.tabs button{padding:8px 20px;font-weight:700}
+.tabs button.on{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
+main{max-width:1240px;margin:0 auto;padding:18px 24px 48px}
+.hide{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+.card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+.card-h b{font-size:1.1rem;color:var(--accent)}
+.hb{display:flex;gap:8px;align-items:center}
+.stat{font-size:.82rem;color:var(--mute);margin-right:6px}
+.stat.un{color:#b36b00;font-weight:700}
+.sh2{font-size:.88rem;font-weight:700;margin:14px 0 6px}
+.sh{font-size:.95rem;font-weight:700;color:var(--accent);margin:16px 0 8px;padding-top:12px;border-top:1px dashed var(--line)}
+.eq{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px}
+.eq>label{flex:1;min-width:140px;max-width:260px}
+.eq>label.w{max-width:420px}
+.op{padding-bottom:9px;color:var(--mute);font-weight:700}
+label{display:block;font-size:.78rem;color:var(--mute)}
+input,select{width:100%;min-width:0;font:inherit;font-size:.95rem;padding:8px 10px;margin-top:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+input:focus,select:focus{outline:2px solid var(--accent);border-color:transparent}
+input.num{text-align:right;font-variant-numeric:tabular-nums}
+input[type=checkbox]{width:22px;height:22px;margin:10px auto 0;display:block;accent-color:var(--accent)}
+.val{margin-top:2px;padding:8px 10px;border-radius:8px;background:var(--res);font-weight:700;font-size:1rem;text-align:right;font-variant-numeric:tabular-nums;min-height:38px}
+.rw{display:grid;gap:8px;align-items:end;margin-bottom:8px}
+.rw.k6{grid-template-columns:1fr 1fr 1fr 1fr 64px 40px}
+.rw.m2{grid-template-columns:1fr 1fr 40px}
+.rw.t6{grid-template-columns:1.2fr 1fr .8fr .9fr 1fr 40px}
+.rw.y{grid-template-columns:1.4fr 1fr .8fr .8fr 40px}
+.rw.p4{grid-template-columns:1fr 1.2fr 1fr 1fr 40px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);padding:7px 14px}
+button.p{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
+button.x{color:var(--warn);padding:8px 0;height:38px}
+.alert{background:var(--abg);border:1px solid var(--abd);color:var(--atx);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:700}
+.alert .ln{color:inherit;font-weight:600;font-size:.86rem;margin-top:2px}
+button.warnb{background:var(--abg);border-color:var(--abd);color:var(--atx);font-weight:700}
+button.sm{padding:4px 10px;font-size:.85rem}
+button:disabled{opacity:.45;cursor:default}
+input.bad{border-color:var(--warn);outline:2px solid var(--warn)}
+.rw.mrow{grid-template-columns:1.2fr 1.2fr 90px 90px}
+.rw.mrow button{height:38px;margin-top:2px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--accent);color:var(--accent-t);padding:10px 22px;border-radius:999px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+#toast.on{opacity:1}
+button.add{color:var(--accent);border-style:dashed;width:100%;font-size:.92rem}
+.chips{margin-bottom:16px;max-width:240px}
+.chips select{font-size:1.15rem;font-weight:700;padding:10px 12px}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{font-size:.76rem;color:var(--mute);text-align:left;font-weight:600;padding:6px;border-bottom:1px solid var(--line)}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th.n,td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td small,.ln{display:block;color:var(--mute);font-size:.74rem;line-height:1.45}
+tfoot td,tr.ft td{font-weight:700;background:var(--res);border-bottom:none}
+tr.cur td{background:var(--res)}
+.neg{color:var(--warn)}
+.empty{color:var(--mute);text-align:center;padding:16px 0}
+.cmpi{font-size:.85rem;margin-bottom:8px;line-height:1.7}
+.cmpi b{color:var(--accent)}
+.cmp table{margin-bottom:12px}
+.acts{display:flex;gap:8px}
+.acts .p{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
+.acts .w{margin-left:auto;color:var(--warn)}
+@media print{.top,.acts{display:none}.pg{display:none!important}#pg2{display:block!important}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="top">
+<h1>用紗量管理</h1>
+<div class="tabs">
+<button class="on" data-tab="0" type="button">託工用紗量</button>
+<button data-tab="1" type="button">機台用紗設定</button>
+<button data-tab="2" type="button">統整表格</button>
+</div>
+<button id="warnBadge" class="warnb hide" type="button" data-act="goWarn"></button>
+</div>
+
+<main>
+<div class="pg" id="pg0">
+<div id="subList"></div>
+<div class="card"><div class="card-h"><b>二、託工單匯整</b><input id="oq" placeholder="搜尋布號" style="max-width:200px;margin:0"></div><div style="overflow-x:auto" id="oBody"></div></div>
+</div>
+<div class="pg hide" id="pg1"><div class="chips" id="chips"></div><div id="panel"></div></div>
+<div class="pg hide" id="pg2">
+<div id="sumArea"></div>
+<div class="stat" id="bkInfo" style="margin:0 0 8px"></div>
+<div class="acts"><button class="p" id="copy" type="button">複製統整</button><button id="print" type="button">列印</button><button id="export" type="button">匯出備份</button><button id="import" type="button">匯入還原</button><button class="w" id="reset" type="button">全部清除</button></div>
+<input type="file" id="impFile" accept=".json,application/json" class="hide">
+</div>
+</main>
+
+<div id="toast"></div>
+<datalist id="dlName"></datalist>
+<datalist id="dlBatch"></datalist>
+
+<script>
+const $=id=>document.getElementById(id);
+const GROUPS=[[1,2],[2,2],[3,2],[5,5],[6,8]];
+const IDS=[];GROUPS.forEach(([g,n])=>{for(let i=1;i<=n;i++)IDS.push(g+'-'+i)});
+const KEY='yarn-system-v3';
+const p2=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())};
+const uid=()=>'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const coilB=()=>({u:uid(),d:today(),no:'',l:'',m:'',ok:false});
+const yarnB=()=>({n:'',b:'',wy:''});
+const pullB=(n,b)=>({d:today(),n:n||'',b:b||'',q:''});
+const subB=()=>({id:null,no:'',qty:'',shr:'',yarns:[yarnB()],coils:[coilB()]});
+const madeB=()=>({d:today(),q:''});
+const stockB=(n,b)=>({d:today(),n:n||'',b:b||'',q:''});
+const machB=()=>({no:'',coilNo:'',src:'',len:'',shr:'',rpm:'',pit:'',start:'',yarns:[yarnB()],pulls:[pullB()],mades:[],draft:{d:today(),q:''},stocks:[stockB()]});
+let st={cur:subB(),orders:[],mach:{},sel:'1-1'};
+
+function load(){
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(s&&s.mach){st=s;if(!st.cur&&Array.isArray(st.sub)&&st.sub.length)st.cur=st.sub[0]}
+  }catch(e){}
+  if(!st.cur)st.cur=subB();
+  if(!Array.isArray(st.orders))st.orders=[];
+  delete st.sub;
+  const fixO=o=>{
+    if(o.id===undefined)o.id=null;
+    ['no','qty','shr'].forEach(k=>{if(o[k]===undefined)o[k]=''});
+    if(!Array.isArray(o.yarns)||!o.yarns.length)o.yarns=[{n:'',b:'',wy:o.wy||''}];
+    delete o.wy;
+    if(!Array.isArray(o.coils)||!o.coils.length)o.coils=[coilB()];
+    o.coils.forEach(c=>{if(c.m===undefined)c.m='';if(c.ok===undefined)c.ok=false;if(c.no===undefined)c.no='';if(!c.u)c.u=uid()});
+  };
+  fixO(st.cur);st.orders.forEach(fixO);
+  IDS.forEach(id=>{
+    const m=st.mach[id]=st.mach[id]||machB();
+    if(!Array.isArray(m.yarns)||!m.yarns.length)m.yarns=[yarnB()];
+    if(!Array.isArray(m.pulls)||!m.pulls.length)m.pulls=[pullB()];
+    ['no','coilNo','src','len','shr','rpm','pit','start'].forEach(k=>{if(m[k]===undefined)m[k]=''});
+    if(!Array.isArray(m.mades))m.mades=[];
+    m.mades=m.mades.filter(x=>x&&num(x.q)>0);
+    if(!m.draft)m.draft={d:today(),q:''};
+    if(!Array.isArray(m.stocks)||!m.stocks.length)m.stocks=[stockB()];
+    m.pulls.forEach(p=>{if(p.n===undefined){const y=m.yarns[parseInt(p.y)||0]||{};p.n=y.n||'';p.b=y.b||''}});
+  });
+  const U=o=>{['no','n','b'].forEach(k=>{if(typeof o[k]==='string')o[k]=o[k].toUpperCase()})};
+  [st.cur].concat(st.orders).forEach(o=>{U(o);o.yarns.forEach(U)});
+  IDS.forEach(id=>{const m=st.mach[id];U(m);m.yarns.forEach(U);m.pulls.forEach(U);m.stocks.forEach(U)});
+  if(!IDS.includes(st.sel))st.sel=IDS[0];
+}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const r4=n=>Math.round(n*10000)/10000;
+const fmt=n=>(n===null||n===undefined)?'—':r4(n).toLocaleString('zh-TW',{maximumFractionDigits:4});
+const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n};
+const sum=a=>a.reduce((x,y)=>x+y,0);
+const norm=s=>s.trim().replace(/\s+/g,' ').toUpperCase();
+const kk=(n,b)=>norm(n)+'\u0000'+norm(b);
+
+/* ---------- 日期：可直接輸入，民國年自動換算西元年 ---------- */
+function parseDate(s){
+  s=String(s||'').trim();if(!s)return null;
+  s=s.replace(/[年月\-.\s]+/g,'/').replace(/日/g,'').replace(/\/+/g,'/').replace(/^\/|\/$/g,'');
+  let y,m,d;const now=new Date();
+  if(s.includes('/')){
+    const q=s.split('/');
+    if(q.length===3){y=q[0];m=q[1];d=q[2]}
+    else if(q.length===2){y=String(now.getFullYear());m=q[0];d=q[1]}
+    else return null;
+  }else{
+    if(!/^\d+$/.test(s))return null;
+    if(s.length===8){y=s.slice(0,4);m=s.slice(4,6);d=s.slice(6)}
+    else if(s.length===7){y=s.slice(0,3);m=s.slice(3,5);d=s.slice(5)}
+    else if(s.length===6){y=s.slice(0,2);m=s.slice(2,4);d=s.slice(4)}
+    else if(s.length===4){y=String(now.getFullYear());m=s.slice(0,2);d=s.slice(2)}
+    else return null;
+  }
+  if(!/^\d+$/.test(y+m+d))return null;
+  let yy=parseInt(y,10);
+  if(y.length<=3)yy+=1911;else if(y.length!==4)return null;
+  const mm=parseInt(m,10),dd=parseInt(d,10),t=new Date(yy,mm-1,dd);
+  if(t.getFullYear()!==yy||t.getMonth()!==mm-1||t.getDate()!==dd)return null;
+  return yy+'-'+p2(mm)+'-'+p2(dd);
+}
+function parseDT(s){
+  s=String(s||'').trim();if(!s)return '';
+  let dp=s,hh=8,mi=0;
+  const m=s.match(/^(.*?)[\sT]+(\d{1,2})(?::?(\d{2}))?$/);
+  if(m&&m[1]){dp=m[1];hh=+m[2];mi=m[3]?+m[3]:0}
+  if(hh>23||mi>59)return null;
+  const d=parseDate(dp);
+  return d?d+'T'+p2(hh)+':'+p2(mi):null;
+}
+const fmtD=v=>v?esc(String(v).replace(/-/g,'/')):'';
+const fmtDT=v=>v?esc(String(v).replace(/-/g,'/').replace('T',' ')):'';
+
+/* ---------- 元件 ---------- */
+const A=(sc,i,l,j)=>'data-sc="'+sc+'" data-i="'+i+'"'+(l?' data-l="'+l+'" data-j="'+j+'"':'');
+function inp(a,f,label,v,o){
+  o=o||{};
+  const dv=o.date?fmtD(v):o.dt?fmtDT(v):esc(v);
+  return '<label'+(o.w?' class="w"':'')+'>'+label+'<input '+a+' data-f="'+f+'"'+(o.n?' class="num" inputmode="decimal" data-num="1"':'')+
+    (o.up?' data-up="1"':'')+(o.date?' data-date="1" inputmode="numeric" placeholder="例 115/11/17"':'')+(o.dt?' data-date="2" placeholder="例 115/11/17 08:00"':'')+
+    (o.t?' type="'+o.t+'"':'')+(o.list?' list="'+o.list+'"':'')+' value="'+dv+'"></label>';
+}
+const out=(label,name,unit)=>'<label>'+label+'<div class="val"><span data-o="'+name+'">—</span>'+(unit?' '+unit:'')+'</div></label>';
+const xbtn=(act,attrs)=>'<button class="x" type="button" data-act="'+act+'" '+attrs+' aria-label="刪除">✕</button>';
+const SEP='<option disabled value="">──────</option>';
+const machOpts=(v,mark)=>GROUPS.map(([g])=>IDS.filter(x=>x.startsWith(g+'-')).map(id=>'<option value="'+id+'"'+(v===id?' selected':'')+'>'+id+(mark&&hasData(st.mach[id])?' ●':'')+'</option>').join('')).join(SEP);
+const machSel=(a,f,label,v)=>'<label>'+label+'<select '+a+' data-f="'+f+'"><option value="">—</option>'+machOpts(v,false)+'</select></label>';
+const chk=(a,f,label,v,dis)=>'<label style="text-align:center">'+label+'<input type="checkbox" '+a+' data-f="'+f+'"'+(v?' checked':'')+(dis?' disabled':'')+'></label>';
+
+/* ---------- 通用表格 ---------- */
+function cellH(c){
+  if(c&&typeof c==='object'&&'sm' in c)return '<td>'+esc(c.t)+'<small>'+esc(c.sm)+'</small></td>';
+  if(c&&typeof c==='object'&&'pct' in c)return '<td class="n neg">'+(Math.round(c.pct*10)/10)+'%</td>';
+  if(c&&typeof c==='object'){const red=c.red!==undefined?c.red:(c.v!==null&&r4(c.v)<0);return '<td class="n'+(red?' neg':'')+'">'+fmt(c.v)+'</td>'}
+  if(typeof c==='number'||c===null)return '<td class="n">'+fmt(c)+'</td>';
+  return '<td>'+esc(c)+'</td>';
+}
+const plain=c=>c&&typeof c==='object'?('sm' in c?c.t:('pct' in c?r4(c.pct)+'%':(c.v===null?'':r4(c.v)))):(typeof c==='number'?r4(c):(c===null?'':c));
+function rawTable(T){
+  const head='<tr>'+T.head.map(h=>'<th'+(h[1]?' class="n"':'')+'>'+h[0]+'</th>').join('')+'</tr>';
+  const body=T.rows.length?T.rows.map(r=>'<tr>'+r.map(cellH).join('')+'</tr>').join('')+(T.foot&&T.foot.length?'<tr class="ft">'+T.foot.map(cellH).join('')+'</tr>':'')
+    :'<tr><td colspan="'+T.head.length+'" class="empty">尚無資料</td></tr>';
+  return '<table><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';
+}
+const tableHTML=T=>'<div class="card"><div class="card-h"><b>'+T.title+'</b></div><div style="overflow-x:auto">'+rawTable(T)+'</div></div>';
+
+/* ---------- 計算 ---------- */
+function ocalc(o){
+  const qty=num(o.qty),shr=num(o.shr);
+  const ct=sum(o.coils.map(c=>num(c.l)||0));
+  const est=ct>0?ct*(1-(shr||0)/100):null;
+  const ys=o.yarns.map(y=>{const wy=num(y.wy);return {y,wy,need:(qty!==null&&wy!==null)?qty*wy:null,estNeed:(est!==null&&wy!==null)?est*wy:null}});
+  return {qty,shr,ct,est,ys,need:sum(ys.map(x=>x.need||0)),estNeed:sum(ys.map(x=>x.estNeed||0))};
+}
+function mcalc(m){
+  const len=num(m.len),shr=num(m.shr);
+  const qty=len!==null?len*(1-(shr||0)/100):null;
+  const made=sum(m.mades.map(x=>num(x.q)||0));
+  const map=new Map();
+  const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,pull:0,used:0,stock:0};map.set(k,e)}return e};
+  const rowNeed=m.yarns.map(y=>{
+    const wy=num(y.wy),need=(qty!==null&&wy!==null)?qty*wy:0,e=get(y.n,y.b);
+    e.need+=need;e.used+=wy!==null?made*wy:0;
+    return {need,has:wy!==null};
+  });
+  const one=m.yarns.length===1?m.yarns[0]:null;
+  const put=(r,f)=>{
+    const q=num(r.q)||0;if(!q)return;
+    const e=(!r.n.trim()&&!r.b.trim()&&one)?get(one.n,one.b):get(r.n,r.b);
+    e[f]+=q;
+  };
+  m.pulls.forEach(r=>put(r,'pull'));m.stocks.forEach(r=>put(r,'stock'));
+  const ys=[...map.values()];
+  const T=f=>sum(ys.map(x=>x[f]));
+  return {qty,rowNeed,ys,made,need:T('need'),pull:T('pull'),used:T('used'),stock:T('stock')};
+}
+function ystat(x,made){
+  const rem=x.pull>0?x.pull-x.need:null;
+  const left=x.used>0?x.pull-x.used:null;                       // 廠內應餘紗 = 領用 − 已用
+  const diff=(x.stock>0&&left!==null)?x.stock-left:null;        // 比對差異 = 庫存 − 廠內應餘紗
+  const act=(made>0&&x.pull>0)?(x.pull-x.stock)/made:null;      // 實際用紗量 = (領用 − 庫存) ÷ 已生產碼數
+  return {rem,left,diff,act};
+}
+const WARN=0.75;   // 已用量達領用量的 75% 即提醒再領紗
+const warnFrom=c=>c.ys.filter(x=>x.used>0&&(x.pull<=0||x.used/x.pull>=WARN)).map(x=>({n:x.n,b:x.b,pull:x.pull,used:x.used,ratio:x.pull>0?x.used/x.pull:null}));
+const warnMsg=w=>w.ratio===null?'尚未領紗，請盡快領紗':(w.ratio>=1?'領用量已用完，請立即領紗':'已用 '+(Math.round(w.ratio*1000)/10)+'%，需再領紗');
+const nc=(v,red)=>'<td class="n'+(red?' neg':'')+'">'+fmt(v)+'</td>';
+function statRow(name,x,made){
+  const t=ystat(x,made);
+  return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)<0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+nc(x.stock||null)+nc(t.diff,t.diff!==null&&r4(t.diff)!==0)+nc(t.act)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
+}
+/* 預估完工：成品數量 ÷ (轉速×40÷緯密) = 天數；工作時間為週一 08:00 ～ 週日 08:00（週日 08:00 ～ 週一 08:00 休息） */
+const WD=['日','一','二','三','四','五','六'];
+const dtFmt=d=>d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())+'（週'+WD[d.getDay()]+'）'+p2(d.getHours())+':'+p2(d.getMinutes());
+function addRun(t0,ms){
+  let t=new Date(t0),rem=ms;
+  for(let i=0;i<1000;i++){
+    let d=t.getDay(),h=t.getHours();
+    if((d===0&&h>=8)||(d===1&&h<8)){
+      const n=new Date(t);n.setHours(8,0,0,0);
+      if(d===0)n.setDate(n.getDate()+1);
+      t=n;
+    }
+    d=t.getDay();
+    const end=new Date(t);end.setHours(8,0,0,0);end.setDate(end.getDate()+((7-d)%7));
+    const avail=end.getTime()-t.getTime();
+    if(rem<=avail)return new Date(t.getTime()+rem);
+    rem-=avail;t=new Date(end.getTime());
+  }
+  return null;
+}
+function finishCalc(m,qty){
+  const rpm=num(m.rpm),pit=num(m.pit);
+  if(qty===null||qty<=0||rpm===null||rpm<=0||pit===null||pit<=0||!m.start)return null;
+  const t0=new Date(m.start);if(isNaN(t0.getTime()))return null;
+  const daily=rpm*40/pit,days=qty/daily;
+  return {daily,days,end:addRun(t0,days*86400000)};
+}
+const remOf=(pull,need)=>pull>0?pull-need:null;
+const remCell=(pull,need)=>{const v=remOf(pull,need);return '<td class="n'+(v!==null&&r4(v)<0?' neg':'')+'">'+fmt(v)+'</td>'};
+const lab=(n,b)=>(n+' '+b).trim();
+const machStr=mm=>Object.keys(mm).map(id=>id+'（'+fmt(mm[id])+'）').join('、');
+
+/* ---------- 託工單與機台（相同布號）比對 ---------- */
+function compare(o){
+  const c=ocalc(o),nm=norm(o.no);
+  const ms=nm?IDS.filter(id=>norm(st.mach[id].no)===nm):[];
+  let mq=0;const my=[];
+  ms.forEach(id=>{const mc=mcalc(st.mach[id]);mq+=mc.qty||0;mc.ys.forEach(x=>{if(x.need||x.pull)my.push({id,n:x.n,b:x.b,need:x.need,pull:x.pull,used:false})})});
+  const rows=[];
+  c.ys.forEach(x=>{
+    const y=x.y;if(!(y.n.trim()||y.b.trim()||x.wy!==null))return;
+    let mn=0,mp=0;const mm={};
+    my.forEach(z=>{
+      if(norm(z.n)===norm(y.n)&&(!y.b.trim()||norm(z.b)===norm(y.b))){z.used=true;mn+=z.need;mp+=z.pull;mm[z.id]=(mm[z.id]||0)+z.need}
+    });
+    rows.push({n:y.n.trim(),b:y.b.trim(),need:x.need,est:x.estNeed,mn,mp,mm,extra:false});
+  });
+  my.filter(z=>!z.used).forEach(z=>rows.push({n:z.n,b:z.b,need:null,est:null,mn:z.need,mp:z.pull,mm:{[z.id]:z.need},extra:true}));
+  const pre=[...new Set(o.coils.filter(x=>x.m).map(x=>x.m))];
+  const sched=[...new Set(o.coils.filter(x=>x.m&&x.ok).map(x=>x.m))];
+  return {c,ms,mq,rows,pre,sched};
+}
+const yarnCmpRow=(no,r,withNo)=>{
+  const base=[(r.n||'—')+(r.extra?'（託工單未列）':''),r.b||'—',r.need,r.est,r.mn||null,machStr(r.mm)];
+  return withNo?[no].concat(base):base;
+};
+const YHEAD=[['品代'],['批號'],['託工用紗量 (kg)',1],['預估用紗量 (kg)',1],['機台所需用紗量 (kg)',1],['機台']];
+function cmpHTML(o){
+  if(!o.no.trim())return '<div class="empty">請先輸入布號</div>';
+  const r=compare(o);
+  const qd=r.c.est!==null?r.mq-r.c.est:null;
+  return '<div class="cmp"><div class="cmpi"><b>預排機台</b> '+(r.pre.join('、')||'—')+'　<b>已排定</b> '+(r.sched.join('、')||'—')+'　<b>機台資料（相同布號）</b> '+(r.ms.join('、')||'無')+'</div>'+
+    rawTable({head:[['託工數量 (碼)',1],['預估可生產數量 (碼)',1],['機台成品數量合計 (碼)',1],['差異：機台 − 預估 (碼)',1]],rows:[[r.c.qty,r.c.est,r.mq||null,{v:qd,red:qd!==null&&qd>0}]]})+
+    rawTable({head:YHEAD,rows:r.rows.map(x=>yarnCmpRow('',x,false))})+'</div>';
+}
+
+/* ---------- 第一大區：一、託工單 ---------- */
+function orderStatus(){
+  const c=st.cur,sg=o=>JSON.stringify([o.no,o.qty,o.shr,o.yarns,o.coils]);
+  const sv=st.orders.find(o=>o.id&&o.id===c.id);
+  if(sv)return sg(sv)===sg(c)?['已儲存',0]:['有變動，待更新',1];
+  const has=c.no.trim()||c.qty||c.shr||c.yarns.some(y=>y.n||y.b||y.wy)||c.coils.some(x=>x.l||x.m||x.no);
+  return has?['未儲存',1]:['新單',0];
+}
+function subHTML(s){
+  const a=A('sub',0);
+  return '<div class="card" data-ci="0"><div class="card-h"><b>一、託工單</b><span class="hb"><span class="stat" id="stat"></span><button class="p" type="button" data-act="saveOrder" data-role="saveBtn">儲存</button><button type="button" data-act="newOrder">新增新單</button></span></div>'+
+    '<div class="eq">'+inp(a,'no','布號',s.no,{w:1,up:1})+inp(a,'qty','託工數量 (碼)',s.qty,{n:1})+'</div>'+
+    '<div class="sh">入庫盤頭</div>'+
+    s.coils.map((c,j)=>{const b=A('sub',0,'coils',j);
+      return '<div class="rw k6">'+inp(b,'d','日期',c.d,{date:1})+inp(b,'no','盤頭號',c.no,{up:1})+inp(b,'l','盤頭長度 (碼)',c.l,{n:1})+machSel(b,'m','預排機台號',c.m)+chk(b,'ok','排定',c.ok,!c.m)+xbtn('rmCoil','data-j="'+j+'"')+'</div>'}).join('')+
+    '<button class="add" type="button" data-act="addCoil">＋ 新增入庫盤頭</button>'+
+    '<div class="eq" style="margin-top:14px">'+out('總盤頭數量 (碼)','ct')+'<span class="op">×</span>'+inp(a,'shr','預估織縮 (%)',s.shr,{n:1})+'<span class="op">=</span>'+out('預估可生產數量 (碼)','est')+'</div>'+
+    '<div class="sh">每碼用紗量</div>'+
+    s.yarns.map((y,j)=>{const b=A('sub',0,'yarns',j);
+      return '<div class="rw t6">'+inp(b,'n','品代',y.n,{list:'dlName',up:1})+inp(b,'b','批號',y.b,{list:'dlBatch',up:1})+inp(b,'wy','每碼用紗量 (kg)',y.wy,{n:1})+out('託工用紗量 (kg)','yn'+j)+out('預估用紗量 (kg)','ye'+j)+xbtn('rmSY','data-j="'+j+'"')+'</div>'}).join('')+
+    '<button class="add" type="button" data-act="addSY">＋ 新增紗種</button>'+
+    '<div class="sh">機台比對</div><div id="cmpCur"></div></div>';
+}
+const tsFmt=t=>{if(!t)return '';const d=new Date(t);return String(d.getFullYear()).slice(2)+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())};
+function renderOrders(){
+  const q=norm($('oq').value);
+  const L=[...st.orders].filter(o=>!q||norm(o.no).includes(q)).sort((x,y)=>(y.t||0)-(x.t||0));
+  if(!L.length){$('oBody').innerHTML='<div class="empty">'+(st.orders.length?'找不到符合的託工單':'尚無已儲存的託工單')+'</div>';return}
+  $('oBody').innerHTML='<table><thead><tr><th>儲存時間</th><th>布號</th><th class="n">託工數量 (碼)</th><th class="n">入庫盤頭 (碼)</th><th class="n">預估可生產數量 (碼)</th><th>用紗量 (kg)</th><th>預排機台</th><th></th></tr></thead><tbody>'+
+    L.map(o=>{
+      const c=ocalc(o),pre=[...new Set(o.coils.filter(x=>x.m).map(x=>x.m+(x.ok?'✓':'')))];
+      const yl=c.ys.filter(x=>x.y.n.trim()||x.y.b.trim()||x.wy!==null).map(x=>'<span class="ln">'+esc(lab(x.y.n,x.y.b)||'（未填品代）')+'　託工 <b>'+fmt(x.need)+'</b>｜預估 <b>'+fmt(x.estNeed)+'</b></span>').join('')||'—';
+      return '<tr'+(o.id===st.cur.id?' class="cur"':'')+'><td>'+tsFmt(o.t)+'</td><td>'+esc(o.no||'（未填布號）')+'</td><td class="n">'+fmt(c.qty)+'</td><td class="n">'+fmt(c.ct>0?c.ct:null)+'</td><td class="n">'+fmt(c.est)+'</td><td>'+yl+'</td><td>'+(pre.join('、')||'—')+'</td>'+
+      '<td class="n"><button class="sm p" type="button" data-act="loadOrder" data-id="'+o.id+'">查詢</button> <button class="sm x" style="height:auto;padding:4px 10px" type="button" data-act="delOrder" data-id="'+o.id+'">刪除</button></td></tr>'}).join('')+
+    '</tbody><tfoot><tr><td colspan="8">共 '+L.length+' 筆</td></tr></tfoot></table>';
+}
+function renderSub(){$('subList').innerHTML=subHTML(st.cur);renderOrders();update()}
+let toastT;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
+/* 託工單更新存檔後，連動更新「從這張單排定帶入」的機台 */
+function syncMachines(o){
+  let n=0;
+  IDS.forEach(id=>{
+    const m=st.mach[id];
+    if(!m.src||!m.src.startsWith(o.id+'|'))return;
+    const c=o.coils.find(x=>x.u===m.src.split('|')[1]);
+    if(!c||c.m!==id||!c.ok){m.src='';return}          // 已取消排定：解除連動，保留機台現有資料
+    m.no=o.no;m.coilNo=c.no||'';m.len=c.l;m.shr=o.shr;
+    m.yarns=o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
+    if(!m.yarns.length)m.yarns=[yarnB()];
+    n++;
+  });
+  return n;
+}
+function saveOrder(){
+  const c=st.cur;
+  if(!c.no.trim()){alert('請先輸入布號');return}
+  const cp=JSON.parse(JSON.stringify(c));
+  if(!cp.id)cp.id='o'+Date.now();
+  cp.t=Date.now();
+  const k=st.orders.findIndex(o=>o.id===cp.id);
+  if(k>=0)st.orders[k]=cp;else st.orders.push(cp);
+  st.cur=JSON.parse(JSON.stringify(cp));
+  const n=k>=0?syncMachines(cp):0;
+  save();renderSub();renderMach();
+  toast(k>=0?'已更新存檔'+(n?'，並連動更新 '+n+' 台機台':''):'已儲存');
+}
+
+/* ---------- 第二大區：機台用紗設定 ---------- */
+const hasData=m=>!!(m.no.trim()||m.len||m.start||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
+function renderChips(){
+  $('chips').innerHTML='<label>機台<select id="machSel">'+machOpts(st.sel,true)+'</select></label>';
+}
+function scheduledFor(id){
+  const L=[];
+  st.orders.forEach(o=>o.coils.forEach(c=>{
+    if(c.m===id&&c.ok)L.push({key:o.id+'|'+c.u,o,c,text:(o.no||'（未填布號）')+(c.no?' ／ 盤頭 '+c.no:'')+'（'+fmt(num(c.l))+' 碼）'});
+  }));
+  return L;
+}
+function panelHTML(id){
+  const m=st.mach[id],a=A('mach',id),sc=scheduledFor(id);
+  const srcSel=sc.length?'<label class="w">排定託工單<select id="srcSel"><option value="">— 手動輸入 —</option>'+sc.map(x=>'<option value="'+esc(x.key)+'"'+(m.src===x.key?' selected':'')+'>'+esc(x.text)+'</option>').join('')+'</select></label>':'';
+  const ys=m.yarns.map((y,j)=>{const b=A('mach',id,'yarns',j);
+    return '<div class="rw y">'+inp(b,'n','品代',y.n,{list:'dlName',up:1})+inp(b,'b','批號',y.b,{list:'dlBatch',up:1})+inp(b,'wy','每碼用紗量 (kg)',y.wy,{n:1})+out('用紗量 (kg)','yn'+j)+xbtn('rmYarn','data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
+  const rows4=(list,l,qLabel,act)=>list.map((p,j)=>{const b=A('mach',id,l,j);
+    return '<div class="rw p4">'+inp(b,'d','日期',p.d,{date:1})+inp(b,'n','品代',p.n,{list:'dlName',up:1})+inp(b,'b','批號',p.b,{list:'dlBatch',up:1})+inp(b,'q',qLabel,p.q,{n:1})+xbtn(act,'data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
+  const Ad=A('mach',id,'draft',0);
+  return '<div class="card"><div class="card-h"><b>機台 #'+id+'</b></div><div data-o="warn"></div>'+
+    '<div class="sh" style="margin-top:0;border-top:0;padding-top:0">一、生產設定</div>'+
+    '<div class="eq">'+srcSel+inp(a,'no','布號',m.no,{w:1,up:1})+inp(a,'coilNo','盤頭號',m.coilNo,{up:1})+'</div>'+
+    '<div class="eq">'+inp(a,'len','盤頭長 (碼)',m.len,{n:1})+'<span class="op">×</span>'+inp(a,'shr','織縮 (%)',m.shr,{n:1})+'<span class="op">=</span>'+out('成品數量 (碼)','qty')+'</div>'+
+    '<div class="sh2">用紗計算</div>'+ys+'<button class="add" type="button" data-act="addYarn" data-id="'+id+'">＋ 新增用紗</button>'+
+    '<div class="sh">二、開機與預估完工</div>'+
+    '<div class="eq">'+inp(a,'start','開機時間',m.start,{dt:1})+inp(a,'rpm','轉速',m.rpm,{n:1})+inp(a,'pit','緯密 (T)',m.pit,{n:1})+'</div>'+
+    '<div class="eq">'+out('日產量 (碼/天)','daily')+out('所需天數','days')+'<label class="w">預估完工時間<div class="val"><span data-o="fin">—</span></div></label></div>'+
+    '<div class="sh">三、已用紗量</div>'+
+    '<div class="sh2">領紗記錄</div>'+rows4(m.pulls,'pulls','領用數量 (kg)','rmPull')+'<button class="add" type="button" data-act="addPull" data-id="'+id+'">＋ 新增領紗記錄</button>'+
+    '<div class="eq" style="margin-top:10px">'+out('累計領用 (kg)','pt')+'</div>'+
+    '<div class="sh2">已生產數量記錄</div>'+
+    '<div class="rw mrow">'+inp(Ad,'d','日期',m.draft.d,{date:1})+inp(Ad,'q','已產數量 (碼)',m.draft.q,{n:1})+'<button class="p" type="button" data-act="addMade" data-id="'+id+'">新增</button><button type="button" data-act="clrMade" data-id="'+id+'">清除</button></div>'+
+    '<div class="sh2">累計已生產數量 (碼)</div><div data-o="mlist"></div>'+
+    '<div class="sh2">廠內庫存記錄</div>'+rows4(m.stocks,'stocks','庫存量 (kg)','rmStock')+'<button class="add" type="button" data-act="addStock" data-id="'+id+'">＋ 新增庫存記錄</button>'+
+    '<div class="eq" style="margin-top:10px">'+out('累計庫存量 (kg)','kt')+'</div>'+
+    '<div class="sh2">總計</div><div style="overflow-x:auto">'+
+    '<table><thead><tr><th>品代 批號</th><th class="n">所需用紗量 (kg)</th><th class="n">領用 (kg)</th><th class="n">剩餘未領 (kg)</th><th class="n">已用紗量 (kg)</th><th class="n">廠內應餘紗 (kg)</th><th class="n">庫存 (kg)</th><th class="n">比對差異 (kg)</th><th class="n">實際用紗量 (kg/碼)</th><th class="n">已用比例</th></tr></thead><tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div></div>';
+}
+function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);update()}
+
+/* ---------- 更新 ---------- */
+let TABLES=[];
+function update(){
+  const dlN=new Set(),dlB=new Set();
+  const addDL=y=>{if(y.n&&y.n.trim())dlN.add(y.n.trim());if(y.b&&y.b.trim())dlB.add(y.b.trim())};
+
+  /* 目前託工單 */
+  const root=document.querySelector('[data-ci]');
+  if(root){
+    const c=ocalc(st.cur),set=(o,v)=>{const e=root.querySelector('[data-o="'+o+'"]');if(e)e.textContent=fmt(v)};
+    set('ct',c.ct>0?c.ct:null);set('est',c.est);
+    c.ys.forEach((x,j)=>{set('yn'+j,x.need);set('ye'+j,x.estNeed)});
+    const ce=$('cmpCur');if(ce)ce.innerHTML=cmpHTML(st.cur);
+    const sEl=$('stat');if(sEl){const os=orderStatus();sEl.textContent=os[0];sEl.className='stat'+(os[1]?' un':'')}
+    const saved=st.orders.some(o=>o.id&&o.id===st.cur.id),dirty=orderStatus()[1];
+    document.querySelectorAll('[data-role="saveBtn"]').forEach(b=>{b.textContent=saved?'更新存檔':'儲存';b.disabled=saved&&!dirty});
+  }
+  st.cur.yarns.forEach(addDL);
+
+  /* 統整：託工用紗量（已儲存） */
+  const tA={title:'託工用紗量（已儲存託工單）',head:[['布號'],['託工數量 (碼)',1],['入庫盤頭 (碼)',1],['預估可生產數量 (碼)',1],['品代'],['批號'],['每碼用紗量 (kg)',1],['託工用紗量 (kg)',1],['預估用紗量 (kg)',1]],rows:[],foot:[]};
+  const tE={title:'託工單與機台比對：數量（相同布號）',head:[['布號'],['託工數量 (碼)',1],['預估可生產數量 (碼)',1],['機台成品數量合計 (碼)',1],['差異：機台 − 預估 (碼)',1],['預排機台'],['已排定'],['機台資料']],rows:[],foot:[]};
+  const tD={title:'託工單與機台比對：用紗量（相同布號）',head:[['布號']].concat(YHEAD),rows:[],foot:[]};
+  let sq=0,sn=0,se=0,ct=0;
+  [...st.orders].sort((x,y)=>(y.t||0)-(x.t||0)).forEach(o=>{
+    const c=ocalc(o),no=o.no.trim()||'（未填布號）';
+    o.yarns.forEach(addDL);
+    const yl=c.ys.filter(x=>x.y.n.trim()||x.y.b.trim()||x.wy!==null);
+    (yl.length?yl:[null]).forEach((x,i)=>{
+      tA.rows.push([no,i?'':c.qty,i?'':(c.ct>0?c.ct:null),i?'':c.est,x?(x.y.n.trim()||'—'):'—',x?(x.y.b.trim()||'—'):'—',x?x.wy:null,x?x.need:null,x?x.estNeed:null]);
+      if(x){sn+=x.need||0;se+=x.estNeed||0}
+    });
+    sq+=c.qty||0;ct+=c.ct;
+    const r=compare(o),qd=r.c.est!==null?r.mq-r.c.est:null;
+    tE.rows.push([no,c.qty,c.est,r.mq||null,{v:qd,red:qd!==null&&qd>0},r.pre.join('、')||'—',r.sched.join('、')||'—',r.ms.join('、')||'—']);
+    r.rows.forEach(x=>tD.rows.push(yarnCmpRow(no,x,true)));
+  });
+  tA.foot=['合計',sq||null,ct||null,'','','','',sn||null,se||null];
+
+  /* 機台 */
+  const tB={title:'各機台明細',head:[['機台'],['布號'],['盤頭號'],['成品數量 (碼)',1],['所需用紗量 (kg)',1],['領用合計 (kg)',1],['剩餘未領 (kg)',1],['預估完工時間']],rows:[],foot:[]};
+  const tW={title:'領紗提醒（已用量達領用量 75% 以上）',head:[['機台'],['布號'],['品代'],['批號'],['領用 (kg)',1],['已用紗量 (kg)',1],['已用比例',1],['提示']],rows:[],foot:[]};
+  const warnIds=[];
+  const map=new Map();let bq=0,bn=0,bp=0;
+  IDS.forEach(id=>{
+    const m=st.mach[id],c=mcalc(m);
+    m.yarns.forEach(addDL);m.pulls.forEach(addDL);m.stocks.forEach(addDL);
+    const ws=warnFrom(c);
+    if(ws.length){warnIds.push(id);ws.forEach(w=>tW.rows.push([id,m.no.trim(),w.n||'（未填品代）',w.b||'—',w.pull||null,w.used,w.ratio===null?null:{pct:w.ratio*100},warnMsg(w)]))}
+    if(c.qty!==null||c.need||c.pull||c.made){
+      const f=finishCalc(m,c.qty);
+      tB.rows.push([id,m.no.trim(),m.coilNo.trim(),c.qty,c.need||null,c.pull||null,{v:remOf(c.pull,c.need)},f&&f.end?dtFmt(f.end):'—']);
+      bq+=c.qty||0;bn+=c.need;bp+=c.pull;
+    }
+    c.ys.forEach(x=>{
+      if(!(x.need||x.pull||x.used))return;
+      const k=kk(x.n,x.b);
+      let e=map.get(k);
+      if(!e){e={n:x.n,b:x.b,need:0,pull:0,used:0,m:{}};map.set(k,e)}
+      e.need+=x.need;e.pull+=x.pull;e.used+=x.used;e.m[id]=(e.m[id]||0)+x.need;
+    });
+  });
+  tB.foot=['合計','','',bq||null,bn||null,bp||null,{v:remOf(bp,bn)},''];
+
+  /* 相同品代＋批號統整 */
+  const list=[...map.values()].sort((a,b)=>a.n.localeCompare(b.n,'zh-TW')||a.b.localeCompare(b.b,'zh-TW',{numeric:true}));
+  const tC={title:'相同品代＋批號統整',head:[['品代'],['批號'],['所需用紗量 (kg)',1],['領用合計 (kg)',1],['剩餘未領 (kg)',1],['已用紗量 (kg)',1],['使用機台']],rows:[],foot:[]};
+  let cn=0,cp=0,cu=0;
+  list.forEach(e=>{
+    cn+=e.need;cp+=e.pull;cu+=e.used;
+    tC.rows.push([e.n||'（未填品代）',e.b||'（未填批號）',e.need||null,e.pull||null,{v:remOf(e.pull,e.need)},e.used||null,machStr(e.m)]);
+  });
+  tC.foot=['合計','',cn||null,cp||null,{v:remOf(cp,cn)},cu||null,''];
+  TABLES=[tW,tC,tB,tA,tE,tD];
+  window._warnIds=warnIds;
+
+  /* 目前機台面板 */
+  const pn=$('panel'),qo=pn.querySelector('[data-o="qty"]');
+  if(qo){
+    const m=st.mach[st.sel],c=mcalc(m);
+    const setp=(o,t)=>{const e=pn.querySelector('[data-o="'+o+'"]');if(e)e.textContent=t};
+    setp('qty',fmt(c.qty));
+    c.rowNeed.forEach((x,j)=>setp('yn'+j,(x.need||x.has)?fmt(x.need):'—'));
+    const wbox=pn.querySelector('[data-o="warn"]'),ws=warnFrom(c);
+    if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg）</span>').join('')+'</div>':'';
+    setp('pt',fmt(c.pull||null));setp('kt',fmt(c.stock||null));
+    const ml=pn.querySelector('[data-o="mlist"]');
+    if(ml)ml.innerHTML=m.mades.length?'<table><thead><tr><th>日期</th><th class="n">碼數</th><th class="n">刪除</th></tr></thead><tbody>'+
+      m.mades.map((x,j)=>'<tr><td>'+fmtD(x.d)+'</td><td class="n">'+fmt(num(x.q))+'</td><td class="n"><button class="sm x" style="height:auto;padding:4px 10px" type="button" data-act="rmMade" data-id="'+st.sel+'" data-j="'+j+'">刪除</button></td></tr>').join('')+
+      '</tbody><tfoot><tr><td>合計</td><td class="n">'+fmt(c.made)+'</td><td class="n">共 '+m.mades.length+' 筆</td></tr></tfoot></table>':'<div class="empty">尚無記錄</div>';
+    const f=finishCalc(m,c.qty);
+    setp('daily',f?fmt(f.daily):'—');setp('days',f?fmt(f.days):'—');setp('fin',f&&f.end?dtFmt(f.end):'—');
+    pn.querySelector('[data-o="ytab"]').innerHTML=c.ys.filter(x=>x.need||x.pull||x.used||x.stock).map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x,c.made)).join('');
+    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:c.need,pull:c.pull,used:c.used,stock:c.stock},c.made);
+  }
+  $('sumArea').innerHTML=TABLES.map(tableHTML).join('');
+  $('dlName').innerHTML=[...dlN].map(v=>'<option value="'+esc(v)+'">').join('');
+  $('dlBatch').innerHTML=[...dlB].map(v=>'<option value="'+esc(v)+'">').join('');
+  const wset=new Set(warnIds);
+  document.querySelectorAll('#machSel option').forEach(o=>{if(o.disabled)return;o.textContent=o.value+(hasData(st.mach[o.value])?' ●':'')+(wset.has(o.value)?' ⚠ 需領紗':'')});
+  const wbd=$('warnBadge');
+  if(wbd){wbd.classList.toggle('hide',!warnIds.length);wbd.textContent='⚠ '+warnIds.length+' 台機台需再領紗'}
+}
+
+/* ---------- 事件 ---------- */
+function targetObj(t){
+  let o=t.dataset.sc==='sub'?st.cur:st.mach[t.dataset.i];
+  if(t.dataset.l==='draft')return o.draft;
+  if(t.dataset.l)o=o[t.dataset.l][+t.dataset.j];
+  return o;
+}
+document.addEventListener('input',e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.f)return;
+  if(t.dataset.date){
+    targetObj(t)[t.dataset.f]=(t.dataset.date==='2'?parseDT(t.value):parseDate(t.value))||'';
+    if(t.classList.contains('bad')&&(t.dataset.date==='2'?parseDT(t.value):parseDate(t.value)))t.classList.remove('bad');
+    save();update();return;
+  }
+  if(t.dataset.num){
+    const v=t.value.replace(/[^0-9.]/g,'').replace(/(\..*)\./g,'$1');
+    if(v!==t.value)t.value=v;
+  }
+  if(t.dataset.up&&!e.isComposing){
+    const u=t.value.toUpperCase();
+    if(u!==t.value){const a0=t.selectionStart,a1=t.selectionEnd;t.value=u;try{t.setSelectionRange(a0,a1)}catch(_){}}
+  }
+  const o=targetObj(t);
+  o[t.dataset.f]=t.type==='checkbox'?t.checked:t.value;
+  if(t.dataset.sc==='sub'&&t.dataset.f==='m'){
+    const row=t.closest('.rw'),cb=row&&row.querySelector('[data-f="ok"]');
+    if(cb){cb.disabled=!t.value;if(!t.value){cb.checked=false;o.ok=false}}
+  }
+  save();update();
+});
+document.addEventListener('focusin',e=>{
+  const t=e.target;
+  if(t.tagName==='INPUT'&&t.type!=='checkbox'&&((t.dataset&&t.dataset.f)||t.id==='oq'))setTimeout(()=>{try{t.select()}catch(_){}},0);
+});
+document.addEventListener('focusout',e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.date)return;
+  const two=t.dataset.date==='2',v=t.value.trim();
+  if(!v){t.classList.remove('bad');return}
+  const iso=two?parseDT(v):parseDate(v);
+  if(iso){t.value=two?fmtDT(iso):fmtD(iso);t.classList.remove('bad');targetObj(t)[t.dataset.f]=iso;save();update()}
+  else t.classList.add('bad');
+});
+document.addEventListener('keydown',e=>{
+  const t=e.target;
+  if(e.key==='Enter'&&t.dataset&&t.dataset.l==='draft'&&t.dataset.f==='q'){e.preventDefault();addMade()}
+});
+document.addEventListener('compositionend',e=>{if(e.target.dataset&&e.target.dataset.up)e.target.dispatchEvent(new Event('input',{bubbles:true}))});
+document.addEventListener('change',e=>{
+  if(e.target.id==='machSel'){st.sel=e.target.value;save();renderMach();return}
+  if(e.target.id==='srcSel'){
+    const m=st.mach[st.sel],v=e.target.value;
+    if(!v){m.src='';save();renderMach();return}
+    const x=scheduledFor(st.sel).find(y=>y.key===v);if(!x)return;
+    m.src=v;m.no=x.o.no;m.coilNo=x.c.no||'';m.len=x.c.l;m.shr=x.o.shr;
+    m.yarns=x.o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
+    if(!m.yarns.length)m.yarns=[yarnB()];
+    save();renderMach();
+  }
+});
+function addMade(){
+  const M=st.mach[st.sel],q=num(M.draft.q);
+  if(!(q>0)){alert('請輸入已產數量 (碼)');return}
+  M.mades.push({d:M.draft.d||today(),q:String(q)});
+  M.draft.q='';save();renderMach();
+  setTimeout(()=>{const e=document.querySelector('#panel [data-l="draft"][data-f="q"]');if(e)e.focus()},0);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||!b.dataset.act)return;
+  const d=b.dataset,j=+d.j,id=d.id,M=st.mach[id];
+  switch(d.act){
+    case 'addCoil':st.cur.coils.push(coilB());save();renderSub();return;
+    case 'rmCoil':{const a=st.cur.coils;if(a.length>1)a.splice(j,1);else a[0]=coilB();save();renderSub();return}
+    case 'addSY':st.cur.yarns.push(yarnB());save();renderSub();return;
+    case 'rmSY':{const a=st.cur.yarns;if(a.length>1)a.splice(j,1);else a[0]=yarnB();save();renderSub();return}
+    case 'goWarn':
+      if(window._warnIds&&window._warnIds.length){st.sel=window._warnIds[0];save();document.querySelector('[data-tab="1"]').click();renderMach()}
+      return;
+    case 'saveOrder':saveOrder();return;
+    case 'newOrder':
+      if(orderStatus()[1]&&!confirm('目前的託工單尚未儲存，確定要新增新單嗎？'))return;
+      st.cur=subB();save();renderSub();return;
+    case 'loadOrder':{
+      if(orderStatus()[1]&&!confirm('目前的託工單尚未儲存，確定要查詢其他託工單嗎？'))return;
+      const o=st.orders.find(x=>x.id===id);if(!o)return;
+      st.cur=JSON.parse(JSON.stringify(o));save();renderSub();window.scrollTo(0,0);return}
+    case 'delOrder':{
+      const o=st.orders.find(x=>x.id===id);if(!o)return;
+      if(!confirm('確定要刪除託工單「'+(o.no||'未填布號')+'」嗎？'))return;
+      st.orders=st.orders.filter(x=>x.id!==id);
+      IDS.forEach(k=>{const m=st.mach[k];if(m.src&&m.src.startsWith(id+'|'))m.src=''});
+      if(st.cur.id===id)st.cur.id=null;
+      save();renderSub();return}
+    case 'addYarn':M.yarns.push(yarnB());break;
+    case 'rmYarn':if(M.yarns.length>1)M.yarns.splice(j,1);else M.yarns[0]=yarnB();break;
+    case 'addPull':M.pulls.push(pullB(M.yarns[0].n,M.yarns[0].b));break;
+    case 'addMade':addMade();return;
+    case 'clrMade':M.draft={d:today(),q:''};save();renderMach();return;
+    case 'rmMade':M.mades.splice(j,1);break;
+    case 'addStock':M.stocks.push(stockB(M.yarns[0].n,M.yarns[0].b));break;
+    case 'rmStock':if(M.stocks.length>1)M.stocks.splice(j,1);else M.stocks[0]=stockB();break;
+    case 'rmPull':if(M.pulls.length>1)M.pulls.splice(j,1);else M.pulls[0]=pullB();break;
+    default:return;
+  }
+  save();renderMach();
+});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+  const n=+b.dataset.tab;
+  document.querySelectorAll('.pg').forEach((p,k)=>p.classList.toggle('hide',k!==n));
+  document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===b));
+  window.scrollTo(0,0);
+});
+$('print').onclick=()=>window.print();
+$('reset').onclick=()=>{
+  if(!confirm('確定要清除所有資料（含已儲存的託工單）嗎？'))return;
+  try{localStorage.removeItem(KEY)}catch(e){}
+  st={cur:subB(),orders:[],mach:{},sel:'1-1'};load();renderSub();renderMach();showBackup();
+};
+$('copy').onclick=async()=>{
+  const L=[];
+  TABLES.forEach(T=>{
+    L.push(T.title);L.push(T.head.map(h=>h[0]).join('\t'));
+    T.rows.forEach(r=>L.push(r.map(plain).join('\t')));
+    if(T.rows.length&&T.foot.length)L.push(T.foot.map(plain).join('\t'));
+    L.push('');
+  });
+  try{await navigator.clipboard.writeText(L.join('\n'));$('copy').textContent='已複製 ✓'}
+  catch(err){$('copy').textContent='複製失敗'}
+  setTimeout(()=>$('copy').textContent='複製統整',1500);
+};
+function showBackup(){
+  const e=$('bkInfo');if(!e)return;
+  const has=st.orders.length||IDS.some(id=>hasData(st.mach[id]));
+  const stale=has&&(!st.lastBackup||Date.now()-st.lastBackup>7*86400000);
+  if(st.lastBackup){const d=new Date(st.lastBackup);e.textContent='上次匯出備份：'+tsFmt(st.lastBackup)+' '+p2(d.getHours())+':'+p2(d.getMinutes())+(stale?'（已超過 7 天，建議重新備份）':'')}
+  else e.textContent=has?'尚未匯出過備份，建議先匯出一份':'尚未匯出過備份';
+  e.className='stat'+(stale?' un':'');
+}
+$('export').onclick=()=>{
+  st.lastBackup=Date.now();save();
+  const d=new Date();
+  const name='用紗量備份_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.json';
+  const blob=new Blob([JSON.stringify({app:'yarn-system',version:3,exportedAt:d.toISOString(),data:st},null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},800);
+  showBackup();toast('已匯出備份檔');
+};
+$('import').onclick=()=>$('impFile').click();
+$('impFile').onchange=e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  const r=new FileReader();
+  r.onerror=()=>alert('讀取檔案失敗');
+  r.onload=()=>{
+    let d;try{d=JSON.parse(r.result)}catch(err){alert('檔案格式錯誤，無法還原');return}
+    if(d&&d.app==='yarn-system'&&d.data)d=d.data;
+    if(!d||typeof d!=='object'||!d.mach||typeof d.mach!=='object'||(!d.cur&&!Array.isArray(d.orders)&&!Array.isArray(d.sub))){alert('這不是有效的用紗量備份檔');return}
+    const n=Array.isArray(d.orders)?d.orders.length:0;
+    if(!confirm('還原會取代目前這個瀏覽器裡的所有資料（目前有 '+st.orders.length+' 筆託工單）。\n備份檔內有 '+n+' 筆託工單。\n\n確定要還原嗎？'))return;
+    st=d;save();load();save();
+    renderSub();renderMach();showBackup();
+    toast('已還原備份（'+n+' 筆託工單）');
+  };
+  r.readAsText(f);
+};
+$('oq').addEventListener('input',renderOrders);
+
+load();renderSub();renderMach();showBackup();
+</script>
+</body>
+</html>
