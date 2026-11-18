@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-title" content="用紗量管理">
 
 <style>
-:root{box-sizing:border-box;--bg:#f6f4ef;--card:#fff;--text:#222;--mute:#6b6b6b;--line:#ddd8cc;--accent:#2f5d62;--accent-t:#fff;--warn:#b3261e;--res:#eaf1f1;--abg:#fff3cd;--abd:#e0a100;--atx:#7a5200;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a1a;--card:#222727;--text:#eee;--mute:#a0a8a8;--line:#394040;--accent:#7fb5ba;--accent-t:#102022;--warn:#ff8a80;--res:#1c3033;--abg:#3a3015;--abd:#c99a1c;--atx:#ffd98a;color-scheme:dark}}
+:root{box-sizing:border-box;--bg:#f6f4ef;--card:#fff;--text:#222;--mute:#6b6b6b;--line:#ddd8cc;--accent:#2f5d62;--accent-t:#fff;--warn:#b3261e;--ok:#2e7d32;--res:#eaf1f1;--abg:#fff3cd;--abd:#e0a100;--atx:#7a5200;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a1a;--card:#222727;--text:#eee;--mute:#a0a8a8;--line:#394040;--accent:#7fb5ba;--accent-t:#102022;--warn:#ff8a80;--ok:#81c784;--res:#1c3033;--abg:#3a3015;--abd:#c99a1c;--atx:#ffd98a;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}
 .top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
@@ -26,6 +26,7 @@ main{max-width:1240px;margin:0 auto;padding:18px 24px 48px}
 .syncb.warnb{color:var(--atx)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
 .modal.hide{display:none}
+.modal.pk{align-items:flex-start;overflow:auto;padding-bottom:340px}
 .mbox{background:var(--card);border-radius:14px;padding:18px;max-width:480px;width:100%;max-height:92vh;overflow:auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
 .card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap}
@@ -66,7 +67,7 @@ input.bad{border-color:var(--warn);outline:2px solid var(--warn)}
 .rw.mrow{grid-template-columns:1.2fr 1.2fr 90px 90px}
 .rw.crow{grid-template-columns:1fr 1fr 1fr 1fr 84px 84px}
 .rw.crow button{height:38px;margin-top:2px}
-.dkp{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
+.dkp{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
 .dkp.on{display:block}
 .dkp .hd{display:flex;gap:8px;margin-bottom:8px}
 .dkp .hd button{flex:1;min-height:42px;font-size:1rem}
@@ -111,6 +112,12 @@ td small,.ln{display:block;color:var(--mute);font-size:.74rem;line-height:1.45}
 tfoot td,tr.ft td{font-weight:700;background:var(--res);border-bottom:none}
 tr.cur td{background:var(--res)}
 .neg{color:var(--warn)}
+.pos{color:var(--ok)}
+input.ce{width:100%;min-width:64px;padding:5px 6px;font-size:inherit;border-radius:6px}
+input.ce.num{text-align:right}
+button.sm{white-space:nowrap}
+#oBody td:nth-child(5),#oBody th:nth-child(5){padding-left:22px!important}
+button.lk{white-space:nowrap;background:none;border:0;padding:4px 0;min-height:0;color:var(--accent);font-weight:700;font-size:inherit;text-decoration:underline;text-align:left;cursor:pointer}
 .empty{color:var(--mute);text-align:center;padding:16px 0}
 .cmpi{font-size:.85rem;margin-bottom:8px;line-height:1.7}
 .cmpi b{color:var(--accent)}
@@ -144,6 +151,13 @@ html{-webkit-text-size-adjust:100%}
   .rw{grid-template-columns:1fr 1fr!important;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg)}
   .rw input,.rw select{background:var(--card)}
   .rw>button.x{grid-column:1/-1;height:40px}
+  .rw.k6>button.x{grid-column:auto;height:48px;margin-top:0}
+  .rw.k6>label:nth-child(5){display:flex;align-items:center;justify-content:center;gap:12px;margin:0;border:1px solid var(--line);border-radius:10px;height:48px;align-self:end}
+  .rw.k6>label:nth-child(5) input[type=checkbox]{margin:0}
+  .rw.t6>label:nth-child(3){grid-column:1/-1}
+  .rw.crow>label:nth-child(3){grid-column:1/-1}
+  .eq.estrow>label:nth-child(5){grid-column:1/-1;text-align:center}
+  .eq.estrow>label:nth-child(5) .val{text-align:center}
   .rw.drow button,.rw.mrow button,.rw.crow button{height:44px;margin-top:0}
   .mk{display:block}
   .rw.mrow{grid-template-columns:1fr!important}
@@ -158,7 +172,17 @@ html{-webkit-text-size-adjust:100%}
   td,th{padding:7px 6px}
   th{white-space:nowrap}
   #cmpCur table,#oBody table,[data-o="plist"] table,[data-o="mlist"] table,[data-o="mused"] table{min-width:480px}
-  #oBody table{min-width:760px}
+  #oBody table{min-width:520px!important}
+  [data-o="mused"] table,#panel table.fit,#panel .card>div>table.fit{min-width:0!important;font-size:.7rem;width:100%}
+  [data-o="mused"] th,[data-o="mused"] td,table.fit th,table.fit td{padding:5px 3px!important}
+  table.fit th{white-space:nowrap!important;font-size:.68rem}
+  table.fit th,table.fit td{padding:5px 4px!important}
+  table.fit td{font-size:.68rem}
+
+  table.fit td{white-space:nowrap!important}
+  table.fit td:first-child{white-space:nowrap!important;min-width:0}
+  #oBody th,#oBody td{padding:6px 6px;white-space:nowrap}
+  #oBody button{white-space:nowrap}
   #sumArea .card>div>table{min-width:680px}
   #panel .card>div>table{min-width:820px}
   td:first-child{min-width:64px}
@@ -169,9 +193,6 @@ html{-webkit-text-size-adjust:100%}
 }
 @media print{.top,.acts{display:none}.pg{display:none!important}#pg2{display:block!important}body{background:#fff}}
 </style>
-<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
-<link rel="manifest" href="manifest.json?v=2">
 </head>
 <body>
 <div class="top">
