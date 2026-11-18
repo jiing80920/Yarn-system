@@ -164,10 +164,6 @@ html{-webkit-text-size-adjust:100%}
 }
 @media print{.top,.acts{display:none}.pg{display:none!important}#pg2{display:block!important}body{background:#fff}}
 </style>
-<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=2">
-<link rel="manifest" href="manifest.json?v=2">
 </head>
 <body>
 <div class="top">
@@ -308,6 +304,20 @@ function calcFinish(start,hours,c){
 const h=React.createElement,{useState,useRef,useEffect}=React;
 const WD=["日","一","二","三","四","五","六"];
 const p2=n=>String(n).padStart(2,"0");
+const XK="prodExtra";
+function loadX(){try{const v=JSON.parse(localStorage.getItem(XK)||"{}");return v&&typeof v==="object"?v:{}}catch(e){return {}}}
+function saveX(n,o){try{const a=loadX();a[n]=o;localStorage.setItem(XK,JSON.stringify(a))}catch(e){}}
+function ysState(){try{return JSON.parse(localStorage.getItem("yarn-system-v3")||"null")||{}}catch(e){return {}}}
+const nk=s=>String(s==null?"":s).trim().toUpperCase();
+function coilList(){const s=ysState(),out=[];
+  const push=o=>(o.coils||[]).forEach(c=>{if(c&&nk(c.no))out.push({no:String(c.no).trim(),fab:o.no||"",shr:o.shr==null?"":o.shr,len:c.l||"",m:c.m||"",ok:!!c.ok})});
+  (s.orders||[]).forEach(push);if(s.cur)push(s.cur);return out}
+function findCoil(no,mid){const k=nk(no);if(!k)return null;const l=coilList().filter(c=>nk(c.no)===k);return l.find(c=>c.m===mid)||l[0]||null}
+function initNo(n){const x=loadX()[n]||{};return x.no||(((ysState().mach||{})[n])||{}).coilNo||""}
+const LK="prodLog";
+function loadLog(){try{const v=JSON.parse(localStorage.getItem(LK)||"[]");return Array.isArray(v)?v:[]}catch(e){return []}}
+function saveLog(a){try{localStorage.setItem(LK,JSON.stringify(a))}catch(e){}}
+function logAdd(e){const a=loadLog();a.push(Object.assign({u:Date.now().toString(36)+Math.random().toString(36).slice(2,6)},e));saveLog(a)}
 const mmdd=d=>p2(d.getMonth()+1)+"/"+p2(d.getDate());
 const parseMD=s=>{s=(s||"").trim();const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})$/)||s.match(/^(\d{2})(\d{2})$/);if(!m)return null;
   const mo=+m[1],da=+m[2],now=new Date();let t=new Date(now.getFullYear(),mo-1,da,12,0,0);
@@ -368,6 +378,8 @@ function App(){
   const [startStr,setStartStr]=useState(I.startStr);
   const [cur,setCur]=useState("");
   const [rd,setRd]=useState(()=>mmdd(new Date()));
+  const [cno,setCno]=useState(()=>initNo(boot.current.m));
+  const [fin,setFin]=useState(()=>(loadX()[boot.current.m]||{}).fin||"");
   const [recs,setRecs]=useState(I.recs);
   const [mid,setMid]=useState(boot.current.m);
   const [err,setErr]=useState("");
@@ -388,13 +400,14 @@ function App(){
   const cfg=cfgOf(sch);
   const curData={beam,shrink,total,rpm,strips,eff,startStr,recs};
   useEffect(()=>{saveMachine(mid,curData)},[mid,beam,shrink,total,rpm,strips,eff,startStr,recs]);
+  useEffect(()=>{saveX(mid,{no:cno,fin:fin})},[mid,cno,fin]);
   const used=loadAll();
   const hasData=n=>n===mid?!isEmptyData(curData):!!used[n];
   const switchMachine=n=>{
     if(n===mid)return;
     saveMachine(mid,curData);
     const d=loadMachine(n);
-    setMid(n);setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setRecs(d.recs);
+    setMid(n);setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setRecs(d.recs);setCno(initNo(n));setFin((loadX()[n]||{}).fin||"");
     idRef.current=d.nextId;setCur("");setErr("");
     try{localStorage.setItem("prodCurMachine",String(n))}catch(e){}
   };
@@ -408,8 +421,20 @@ function App(){
     setRd(mmdd(T));setCur("");setErr("");
   };
   const clearRecs=()=>{setRecs([]);setCur("");setErr("");idRef.current=1};
-  const calcTotal=(b,s)=>{const B=parseFloat(b),S=parseFloat(s);if(b!==""&&s!==""&&B>0&&S>=0&&S<100)setTotal(String(Math.round(B*(1-S/100)*100)/100))};
-  const clearAll=()=>{setBeam("");setShrink("");setTotal("");setRpm("");setStrips("");setEff("");setStartStr(toInput(new Date()));clearRecs();setOpen(false);setBeamOpen(false);setSch(savedSch);setSchOpen(false);setSchMsg("")};
+  const calcTotal=(b,s)=>{const B=parseFloat(b),S=parseFloat(s);if(b!==""&&s!==""&&B>0&&S>=0&&S<100)setTotal(String(Math.round(B*(1-S/100))))};
+  const clearAll=()=>{setBeam("");setShrink("");setTotal("");setRpm("");setStrips("");setEff("");setStartStr(toInput(new Date()));clearRecs();setCno("");setFin("");setOpen(false);setBeamOpen(false);setSch(savedSch);setSchOpen(false);setSchMsg("")};
+  const pickCoil=v=>{setCno(v);const c=findCoil(v,mid);if(!c)return;
+    {const lastN=loadLog().filter(x=>x.type==="new"&&x.m===mid&&!x.x).pop();if(!lastN||nk(lastN.no)!==nk(c.no))logAdd({type:"new",m:mid,no:c.no,fab:c.fab,len:c.len,shr:c.shr,at:Date.now()})}const L=parseFloat(c.len);if(!(L>0))return;
+    setBeam(String(L));setBeamOpen(true);const S=parseFloat(c.shr);if(c.shr!==""&&!isNaN(S)){setShrink(String(c.shr));calcTotal(String(L),String(c.shr))}};
+  const toggleFin=()=>{
+    if(fin){saveLog(loadLog().map(x=>(x.type==="fin"&&x.m===mid&&x.fa===fin)?Object.assign({},x,{x:1}):x));setFin("");return}
+    if(window.confirm("確定「"+mid+"」機台已完工？")){const f=new Date().toISOString();
+      logAdd({type:"fin",m:mid,no:cno,fab:cm?cm.fab:"",len:cm?cm.len:beam,qty:done,total:total,at:Date.now(),fa:f});setFin(f)}};
+  const cm=cno?findCoil(cno,mid):null,cl=coilList();
+  const matchMsg=!cno?null:!cm?{t:"✗ 查無此盤頭號（請先在「一、託工單」的入庫盤頭輸入）",w:1}
+    :cm.m&&cm.m!==mid?{t:"⚠ 已比對：布號 "+cm.fab+"，但預排機台為 "+cm.m,w:1}
+    :(cm.len&&beam!==""&&Math.abs(parseFloat(beam)-parseFloat(cm.len))>0.005)?{t:"⚠ 盤頭長與入庫資料不同（入庫 "+cm.len+"）",w:1}
+    :{t:"✔ 已比對：布號 "+cm.fab+"　盤頭長 "+cm.len+(cm.m?"　預排 "+cm.m:"")};
   const done=recs.reduce((a,r)=>a+r.qty,0);
   const T=parseFloat(total),R=parseFloat(rpm),S=parseFloat(strips),E=parseFloat(eff);
   const okIn=T>0&&R>0&&S>0;
@@ -463,10 +488,13 @@ function App(){
       ws1["!freeze"]={xSplit:1,ySplit:1};
       const ws2=XLSX.utils.aoa_to_sheet(detail);
       ws2["!cols"]=[{wch:8},{wch:8},{wch:12},{wch:20}];
+      const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",x.type==="fin"?(x.qty==null?"":x.qty):""]));
+      const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16}];
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws0,"完工時間總表");
       XLSX.utils.book_append_sheet(wb,ws1,"19台總表");
       XLSX.utils.book_append_sheet(wb,ws2,"生產紀錄明細");
+      XLSX.utils.book_append_sheet(wb,ws3,"完工與盤頭記錄");
       const buf=XLSX.write(wb,{bookType:"xlsx",type:"array"});
       setExpMsg(await saveFile("F345-19台機台資料-"+stamp()+".xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",buf));
     }catch(e){setExpMsg("匯出失敗："+(e&&e.message?e.message:e))}
@@ -474,7 +502,7 @@ function App(){
   const exportJson=async()=>{
     try{
       saveMachine(mid,curData);
-      const pack={app:"F345",version:1,exportedAt:new Date().toISOString(),schedule:sch,machines:loadAll()};
+      const pack={app:"F345",version:1,exportedAt:new Date().toISOString(),schedule:sch,machines:loadAll(),log:loadLog(),extra:loadX()};
       setExpMsg(await saveFile("F345-備份-"+stamp()+".json","application/json",JSON.stringify(pack,null,1)));
     }catch(e){setExpMsg("匯出失敗："+(e&&e.message?e.message:e))}
   };
@@ -490,6 +518,8 @@ function App(){
         if(!window.confirm("將以備份檔覆蓋目前所有機台資料（共 "+n+" 台有資料），確定匯入？"))return;
         localStorage.setItem("prodMachines",JSON.stringify(pack.machines));
         if(pack.schedule)localStorage.setItem("prodSchedule",JSON.stringify(pack.schedule));
+        if(Array.isArray(pack.log))saveLog(pack.log);
+        if(pack.extra&&typeof pack.extra==="object")localStorage.setItem(XK,JSON.stringify(pack.extra));
         location.reload();
       }catch(e){setExpMsg("匯入失敗："+(e&&e.message?e.message:e))}
     };
@@ -504,6 +534,10 @@ function App(){
       h("select",{value:mid,onChange:e=>switchMachine(e.target.value)},MACHINES.map(n=>h("option",{key:n,value:n},"機台 "+n+(hasData(n)?"　●":"")))),
       h("div",{className:"note"},"各機台資料分別自動儲存在這支手機，切換機台即載入該台資料。● 表示已有資料。")),
     h("div",{className:"card"},h("h2",null,"01｜基本輸入"),
+      h("label",null,"盤頭號"),
+      h("input",{type:"text",list:"dlCoil",value:cno,placeholder:"輸入或選擇盤頭號，自動帶入資料",onChange:e=>pickCoil(e.target.value.toUpperCase())}),
+      h("datalist",{id:"dlCoil"},cl.slice().sort((a,b)=>(b.m===mid)-(a.m===mid)).map((c,i)=>h("option",{key:i,value:c.no},c.fab+(c.m?"　預排 "+c.m:"")+(c.len?"　"+c.len+" 碼":"")))),
+      matchMsg&&h("div",{className:matchMsg.w?"err":"ok",style:{marginTop:6,fontSize:14}},matchMsg.t),
       h("div",null,
         h("button",{className:"tog",style:{fontSize:15},onClick:()=>setBeamOpen(o=>!o)},h("span",null,"盤頭長／織縮換算（選填）"),h("span",null,beamOpen?"▲":"▼")),
         beamOpen&&h("div",null,
@@ -555,7 +589,8 @@ function App(){
       h("div",{className:"res"},h("span",null,"每日產量"+(E>0&&E!==100?"（效率 "+fmtN(E)+"%）":"")),h("b",null,daily===null?"–":fmtN(daily))),
       h("div",{className:"res"},h("span",null,"剩餘數量"),h("b",null,remain===null?"–":fmtN(remain))),
       h("div",{className:"res"},h("span",null,"剩餘運轉時間"),h("b",null,hrs===null?"–":fmtN(hrs)+" 小時")),
-      h("div",{className:"res"},h("span",null,"預計完工日期時間"),h("b",null,finish))),
+      h("div",{className:"res"},h("span",null,"預計完工日期時間"),h("b",null,fin?"已完工　"+fmtFull(new Date(fin)).slice(0,16):finish)),
+      h("button",{className:"wide",style:fin?{}:{fontWeight:700},onClick:toggleFin},fin?"取消完工":"完工")),
     h("div",{className:"card"},
       h("button",{className:"tog",onClick:()=>setSumOpen(o=>!o)},h("span",null,"所有機台完工時間總表"),h("span",null,sumOpen?"▲":"▼")),
       sumOpen&&(()=>{
@@ -603,6 +638,7 @@ function App(){
       h("button",{className:"wide",onClick:exportJson},"匯出完整備份（JSON）"),
       h("label",{className:"wide",style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:52,border:"1px solid var(--line)",background:"#0b121c",borderRadius:12,color:"var(--tx)",fontSize:16,margin:"6px 0 0",cursor:"pointer"}},"匯入備份（JSON）",h("input",{type:"file",accept:".json,application/json",style:{display:"none"},onChange:importJson})),
       expMsg&&h("div",{className:"ok"},expMsg),
+      h("div",{className:"note"},"完工與選用新盤頭的記錄會自動存檔（目前 "+loadLog().filter(x=>!x.x).length+" 筆），一併收進 Excel 的「完工與盤頭記錄」工作表與 JSON 備份。"),
       h("div",{className:"note"},"Excel 含三個工作表：「完工時間總表」（有資料的機台依完工時間排序）、「19台總表」（19 台機台一覽，欄位同儲存資料表並加上總成品數量、條數、起算時間、剩餘數量）與「生產紀錄明細」（每筆數量與時間）；JSON 備份含所有機台資料與開機／休息設定，可於換手機或清除資料後匯入還原。手機上匯出會開啟分享選單，可選「儲存到檔案」。"))),
     h("button",{className:"danger",onClick:clearAll},"一鍵清除所有資料"));
 }
@@ -758,13 +794,13 @@ const tableHTML=T=>'<div class="card"><div class="card-h"><b>'+T.title+'</b></di
 function ocalc(o){
   const qty=num(o.qty),shr=num(o.shr);
   const ct=sum(o.coils.map(c=>num(c.l)||0));
-  const est=ct>0?ct*(1-(shr||0)/100):null;
+  const est=ct>0?Math.round(ct*(1-(shr||0)/100)):null;
   const ys=o.yarns.map(y=>{const wy=num(y.wy);return {y,wy,need:(qty!==null&&wy!==null)?qty*wy:null,estNeed:(est!==null&&wy!==null)?est*wy:null}});
   return {qty,shr,ct,est,ys,need:sum(ys.map(x=>x.need||0)),estNeed:sum(ys.map(x=>x.estNeed||0))};
 }
 function mcalc(m){
   const len=num(m.len),shr=num(m.shr);
-  const qty=len!==null?len*(1-(shr||0)/100):null;
+  const qty=len!==null?Math.round(len*(1-(shr||0)/100)):null;
   const made=sum(m.mades.map(x=>num(x.q)||0));
   const map=new Map();
   const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,pull:0,used:0,stock:0};map.set(k,e)}return e};
@@ -1147,7 +1183,7 @@ function update(){
     }
     if(mb){mb.textContent=m.sig?'更新存檔':'儲存';mb.disabled=(!has&&!m.sig)||(!!m.sig&&!dirty)}
     const f=finishCalc(m,c.qty);
-    setp('daily',f?fmt(f.daily):'—');setp('days',f?fmt(f.days):'—');setp('fin',f&&f.end?dtFmt(f.end):'—');
+    setp('daily',f?fmt(f.daily):'—');setp('days',f?fmt(f.days):'—');setp('fin',m.fin?'已完工 '+tsFull(m.fin).slice(0,16):f&&f.end?dtFmt(f.end):'—');
     pn.querySelector('[data-o="ytab"]').innerHTML=c.ys.filter(x=>x.need||x.pull||x.used||x.stock).map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join('');
     pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:c.need,pull:c.pull,used:c.used,stock:c.stock,made:0});
   }
@@ -1364,7 +1400,7 @@ const Link={
   nowStr(){const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())},
   isoD(t){const d=new Date(t);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())},
   tOf(x){return x.t||Date.parse(x.d+'T00:00:00')||Date.now()},
-  qtyOf(m){const l=num(m.len);return l===null?null:l*(1-(num(m.shr)||0)/100)},
+  qtyOf(m){const l=num(m.len);return l===null?null:Math.round(l*(1-(num(m.shr)||0)/100))},
   /* 主頁面 → 計算機 */
   exportOne(id,all){
     const m=st.mach[id],old=all[id]||null;
@@ -1372,7 +1408,7 @@ const Link={
     const oldRecs=(old&&old.recs)||[],q=this.qtyOf(m);
     let next=Math.max(0,...oldRecs.map(r=>+r.id||0),...m.mades.map(x=>+x.cid||0))+1;
     const recs=m.mades.map(x=>{if(!x.cid)x.cid=next++;return {id:x.cid,qty:num(x.q)||0,time:new Date(this.tOf(x)).toISOString()}});
-    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(Math.round(q*100)/100):((old&&old.total)||''),rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
+    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
     if(old&&JSON.stringify(old)===JSON.stringify(o))return false;
     all[id]=o;return true;
   },
@@ -1413,6 +1449,7 @@ const Link={
     if(next.length!==m.mades.length||next.some((x,i)=>x!==m.mades[i])){m.mades=next;ch=true}
     const set=(k,v)=>{if(m[k]!==v){m[k]=v;ch=true}};
     set('rpm',c.rpm||'');set('pit',c.strips||'');
+    try{const X=(JSON.parse(localStorage.getItem('prodExtra')||'{}')||{})[id]||{};set('fin',X.fin||'')}catch(e){}
     if(c.startStr&&(!m.start||String(m.start).includes('T')))set('start',c.startStr);   // 主頁面只填日期時，不被計算機覆蓋
     if(c.beam&&c.shrink!==''&&c.shrink!==undefined){set('len',String(c.beam));set('shr',String(c.shrink))}
     else if(c.total!==''&&c.total!==undefined){
