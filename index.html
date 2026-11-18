@@ -166,7 +166,7 @@ html{-webkit-text-size-adjust:100%}
 <label class="w">GitHub 帳號<input id="syOwner" autocapitalize="off" autocomplete="off" placeholder="例 jiing80920"></label>
 <label class="w">資料庫名稱（必須是 Private）<input id="syRepo" autocapitalize="off" autocomplete="off" placeholder="例 yarn-data"></label>
 <label class="w">資料檔名稱<input id="syPath" autocapitalize="off" autocomplete="off" placeholder="yarn-data.json"></label>
-<label class="w">存取權杖 Token<input id="syToken" type="password" autocomplete="off" placeholder="github_pat_…（已設定時可留空）"></label>
+<label class="w">同步密碼<input id="syPassword" type="password" autocomplete="off" placeholder="輸入你設定在 Cloudflare 的 SYNC_PASSWORD"></label>
 </div>
 <div class="acts" style="flex-wrap:wrap;margin-top:10px">
 <button class="p" id="syConnect" type="button">連線並同步</button>
@@ -870,10 +870,21 @@ $('impFile').onchange=e=>{
   r.readAsText(f);
 };
 $('oq').addEventListener('input',renderOrders);
-/* ---------- 雲端同步（GitHub 私人 repository；單人、多裝置）---------- */
+/* ---------- 雲端同步（Cloudflare Worker 中介；GitHub Token 不進入瀏覽器）---------- */
 const SYNC_KEY='yarn-sync-v1';
+const WORKER_URL='https://yarn-sync.sy7g7rpw6f.workers.dev';
+const PASSWORD_KEY='yarn-sync-password';
 let sc=null;try{sc=JSON.parse(localStorage.getItem(SYNC_KEY)||'null')}catch(e){}
-const scSave=()=>{try{if(sc)localStorage.setItem(SYNC_KEY,JSON.stringify(sc));else localStorage.removeItem(SYNC_KEY)}catch(e){}};
+let syncPassword='';try{syncPassword=sessionStorage.getItem(PASSWORD_KEY)||''}catch(e){}
+const scSave=()=>{
+  try{
+    if(sc){
+      delete sc.token;                 // 舊版曾把 GitHub Token 存在 localStorage，移除它
+      localStorage.setItem(SYNC_KEY,JSON.stringify(sc));
+    }else localStorage.removeItem(SYNC_KEY);
+  }catch(e){}
+};
+if(sc)scSave();
 const sy={busy:false,err:'',last:0,timer:null,again:0,paused:false};
 const devName=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'手機':'電腦';
 function b64enc(str){const by=new TextEncoder().encode(str);let bin='';by.forEach(x=>bin+=String.fromCharCode(x));return btoa(bin)}
@@ -883,15 +894,15 @@ const repoUrl=()=>'/repos/'+encodeURIComponent(sc.owner)+'/'+encodeURIComponent(
 const fileUrl=()=>repoUrl()+'/contents/'+encPath(sc.path);
 async function api(path,opt){
   opt=opt||{};
-  const h={'Accept':'application/vnd.github+json','Authorization':'Bearer '+sc.token,'X-GitHub-Api-Version':'2022-11-28'};
+  const h={'Accept':'application/vnd.github+json','Authorization':'Bearer '+syncPassword,'X-GitHub-Api-Version':'2022-11-28'};
   if(opt.body)h['Content-Type']='application/json';
-  const r=await fetch('https://api.github.com'+path,{method:opt.method||'GET',cache:'no-store',headers:h,body:opt.body?JSON.stringify(opt.body):undefined});
+  const r=await fetch(WORKER_URL+path,{method:opt.method||'GET',cache:'no-store',headers:h,body:opt.body?JSON.stringify(opt.body):undefined});
   let j=null;try{j=await r.json()}catch(e){}
   return {status:r.status,ok:r.ok,json:j};
 }
 function apiErr(r){
-  const m={401:'Token 無效或已過期',403:'沒有權限，或已達 GitHub 使用上限',404:'找不到資料庫，或 Token 沒有這個資料庫的權限'};
-  return {msg:m[r.status]||('GitHub 回應錯誤（'+r.status+'）')};
+  const m={401:'同步密碼錯誤或尚未輸入',403:'沒有權限，或 GitHub 已達使用上限',404:'找不到 yarn-data 或資料檔',405:'Worker 不允許這個操作'};
+  return {msg:m[r.status]||(r.json&&r.json.error)||('同步服務回應錯誤（'+r.status+'）')};
 }
 async function remoteGet(){
   const r=await api(fileUrl()+'?_='+Date.now());
@@ -956,6 +967,7 @@ async function pushLocal(sha){
 }
 async function syncNow(manual){
   if(!sc)return;
+  if(!syncPassword){sy.err='請先輸入同步密碼';showSync();if(manual)openSync();return}
   if(sy.busy){sy.again++;return}
   if(sy.paused&&!manual)return;
   sy.busy=true;sy.err='';sy.paused=false;showSync();
@@ -982,61 +994,66 @@ async function syncNow(manual){
         }
       }
       if(sy.paused)break;
-      if((st.updatedAt||0)>(sc.baseAt||0)&&round<3)continue;   // 同步期間又有變動，再補一次
+      if((st.updatedAt||0)>(sc.baseAt||0)&&round<3)continue;
       break;
     }
   }catch(e){sy.err=(e&&e.msg)?e.msg:'無法連線（可能離線），稍後會自動重試'}
   sy.busy=false;showSync();
 }
 const typing=()=>{const a=document.activeElement;return a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)&&!a.closest('#syncModal')};
-setInterval(()=>{if(sc&&!sy.busy&&!sy.paused&&document.visibilityState==='visible'&&!typing())syncNow(false)},60000);
+setInterval(()=>{if(sc&&syncPassword&&!sy.busy&&!sy.paused&&document.visibilityState==='visible'&&!typing())syncNow(false)},60000);
 document.addEventListener('visibilitychange',()=>{
-  if(!sc)return;
+  if(!sc||!syncPassword)return;
   if(document.visibilityState==='hidden'){if((st.updatedAt||0)>(sc.baseAt||0)){clearTimeout(sy.timer);syncNow(false)}}
   else if(!typing())syncNow(false);
 });
-window.addEventListener('online',()=>{if(sc)syncNow(false)});
+window.addEventListener('online',()=>{if(sc&&syncPassword)syncNow(false)});
 
 const syMsg=(t,bad)=>{const e=$('syMsg');e.textContent=t;e.style.color=bad?'var(--warn)':''};
 function openSync(){
-  $('syOwner').value=sc?sc.owner:'';$('syRepo').value=sc?sc.repo:'';$('syPath').value=sc?sc.path:'yarn-data.json';$('syToken').value='';
-  syMsg(sc?(sy.err?('目前狀態：'+sy.err):(sy.paused?'目前狀態：等待選擇保留哪一份資料，按「立即同步」繼續':'已連線'+(sy.last?'，上次同步 '+hm(sy.last):''))):'尚未連線',!!(sc&&(sy.err)));
+  $('syOwner').value=sc?sc.owner:'jiing80920';$('syRepo').value=sc?sc.repo:'yarn-data';$('syPath').value=sc?sc.path:'yarn-data.json';$('syPassword').value=syncPassword;
+  syMsg(sc?(sy.err?('目前狀態：'+sy.err):(sy.paused?'目前狀態：等待選擇保留哪一份資料，按「立即同步」繼續':'已設定同步')):'尚未連線',!!(sc&&(sy.err)));
   $('syncModal').classList.remove('hide');
 }
 $('syncBtn').onclick=openSync;
 $('syClose').onclick=()=>$('syncModal').classList.add('hide');
 $('syNow').onclick=async()=>{
   if(!sc){syMsg('請先填寫並按「連線並同步」',true);return}
+  syncPassword=$('syPassword').value.trim();
+  try{sessionStorage.setItem(PASSWORD_KEY,syncPassword)}catch(e){}
   syMsg('同步中…');await syncNow(true);
   syMsg(sy.err?('同步失敗：'+sy.err):(sy.paused?'已暫停，尚未選擇保留哪一份資料':'同步完成 '+hm(sy.last)),!!sy.err);
 };
 $('syOff').onclick=()=>{
   if(!sc)return;
-  if(!confirm('中斷連線後，這台裝置的資料會保留，但不再與雲端同步。\n確定要中斷嗎？'))return;
-  sc=null;scSave();sy.err='';sy.paused=false;clearTimeout(sy.timer);showSync();syMsg('已中斷連線');
+  if(!confirm('中斷連線後，這台裝置的資料會保留，但不再與雲端同步。確定要中斷嗎？'))return;
+  sc=null;scSave();syncPassword='';try{sessionStorage.removeItem(PASSWORD_KEY)}catch(e){}
+  sy.err='';sy.paused=false;clearTimeout(sy.timer);showSync();syMsg('已中斷連線');
 };
 $('syConnect').onclick=async()=>{
   const o=$('syOwner').value.trim(),r=$('syRepo').value.trim(),q=$('syPath').value.trim()||'yarn-data.json';
-  const t=$('syToken').value.trim()||(sc&&sc.token)||'';
-  if(!o||!r||!t){syMsg('請填寫 GitHub 帳號、資料庫名稱與 Token',true);return}
+  const pw=$('syPassword').value.trim();
+  if(!o||!r||!pw){syMsg('請填寫 GitHub 帳號、資料庫名稱與同步密碼',true);return}
+  if(o!=='jiing80920'||r!=='yarn-data'||q!=='yarn-data.json'){syMsg('目前同步服務只允許 jiing80920/yarn-data/yarn-data.json',true);return}
   const prev=sc;
-  sc={owner:o,repo:r,path:q,token:t,sha:'',baseAt:0,synced:false};
+  sc={owner:o,repo:r,path:q,sha:'',baseAt:0,synced:false};
   if(prev&&prev.owner===o&&prev.repo===r&&prev.path===q){sc.sha=prev.sha;sc.baseAt=prev.baseAt;sc.synced=prev.synced}
+  syncPassword=pw;try{sessionStorage.setItem(PASSWORD_KEY,pw)}catch(e){}
   syMsg('測試連線中…');
   try{
     const rr=await api(repoUrl());
     if(!rr.ok){sc=prev;syMsg(apiErr(rr).msg,true);return}
-    if(rr.json&&rr.json.private===false){sc=prev;syMsg('這個資料庫是公開的，生產資料會被所有人看到。請在 GitHub 把它改成 Private，或另建一個私人資料庫。',true);return}
-    if(rr.json&&rr.json.permissions&&rr.json.permissions.push===false){sc=prev;syMsg('這個 Token 沒有寫入權限，請重新建立並開啟 Contents 的 Read and write。',true);return}
-  }catch(e){sc=prev;syMsg('無法連線到 GitHub，請確認網路後再試',true);return}
+    if(rr.json&&rr.json.private===false){sc=prev;syMsg('這個資料庫是公開的，請確認 GitHub Repository 為 Private。',true);return}
+  }catch(e){sc=prev;syMsg('無法連線到同步服務，請確認 Worker 已部署及同步密碼正確',true);return}
   scSave();sy.paused=false;sy.err='';showSync();
   $('syncModal').classList.add('hide');
   syncNow(true);
 };
 
 
+
 load();renderSub();renderMach();showBackup();
-showSync();if(sc)syncNow(false);
+showSync();if(sc){if(syncPassword)syncNow(false);else openSync();}
 </script>
 </body>
 </html>
