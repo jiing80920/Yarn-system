@@ -2059,6 +2059,16 @@ async function remotePut(doc,sha){
   if(!r.ok)throw apiErr(r);
   return {sha:r.json.content.sha};
 }
+/* 計算機端的資料（完工狀態、備註、完工/換盤頭記錄、各機台計算資料）也一併同步 */
+const XKEYS=[['X','prodExtra'],['L','prodLog'],['M','prodMachines']];
+function extraObj(){const o={};XKEYS.forEach(([k,key])=>{try{const v=localStorage.getItem(key);if(v!==null)o[k]=JSON.parse(v)}catch(e){}});return o}
+const extraSnap=()=>JSON.stringify(extraObj());
+let lastX=extraSnap();
+window.addEventListener('storage',e=>{
+  if(!e.key||!XKEYS.some(x=>x[1]===e.key))return;
+  const n=extraSnap();if(n===lastX)return;
+  lastX=n;st.updatedAt=Date.now();persist();syncSoon();
+});
 const hasAnyData=()=>st.orders.length>0||IDS.some(id=>hasData(st.mach[id]))||orderStatus()[1]===1;
 
 function showSync(){
@@ -2092,15 +2102,19 @@ function applyRemote(doc,sha){
   if(!d||typeof d!=='object'||!d.mach)throw {msg:'雲端資料格式不正確'};
   const keep=st.sel;
   st=d;st.sel=keep;st.updatedAt=doc.updatedAt||0;
+  if(doc.extra&&typeof doc.extra==='object'){
+    XKEYS.forEach(([k,key])=>{if(doc.extra[k]!==undefined){try{localStorage.setItem(key,JSON.stringify(doc.extra[k]))}catch(e){}}});
+    lastX=extraSnap();
+  }
   persist();load();persist();
   sc.sha=sha||sc.sha;sc.baseAt=doc.updatedAt||0;sc.synced=true;scSave();sy.last=Date.now();
   renderSub();renderMach();showBackup();
-  if(window.Link)Link.sched();
+  if(window.Link){if(Link.tab3)Link.openCalc();else Link.sched()}
 }
 async function pushLocal(sha){
   if(!st.updatedAt){st.updatedAt=Date.now();persist()}
   const snap=st.updatedAt;
-  const r=await remotePut({app:'yarn-system',version:3,updatedAt:snap,device:devName,data:st},sha);
+  const r=await remotePut({app:'yarn-system',version:3,updatedAt:snap,device:devName,data:st,extra:extraObj()},sha);
   if(r.conflict)return 'conflict';
   sc.sha=r.sha;sc.baseAt=snap;sc.synced=true;scSave();sy.last=Date.now();
   return 'ok';
