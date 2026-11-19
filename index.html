@@ -630,7 +630,7 @@ function App(){
     h("div",{className:"card"},h("h2",null,"01｜基本輸入"),
       h("label",null,"盤頭號"),
       h("input",{type:"text",list:"dlCoil",value:cno,placeholder:"輸入或選擇盤頭號，自動帶入資料",onChange:e=>pickCoil(e.target.value.toUpperCase())}),
-      h("datalist",{id:"dlCoil"},cl.slice().sort((a,b)=>(b.m===mid)-(a.m===mid)).map((c,i)=>h("option",{key:i,value:c.no},c.fab+(c.m?"　預排 "+c.m:"")+(c.len?"　"+c.len+" 碼":"")))),
+      h("datalist",{id:"dlCoil"},(()=>{const fins=loadLog().filter(x=>x.type==="fin"&&!x.x&&x.m===mid).map(x=>nk(x.no)),seen={};return cl.filter(c=>{if(!(c.ok&&c.m===mid))return false;const k=nk(c.no);if(seen[k])return false;seen[k]=1;return k===nk(cno)||fins.indexOf(k)<0})})().map((c,i)=>h("option",{key:i,value:c.no},c.fab+(c.m?"　預排 "+c.m:"")+(c.len?"　"+c.len+" 碼":"")))),
       matchMsg&&h("div",{className:matchMsg.w?"err":"ok",style:{marginTop:6,fontSize:14}},matchMsg.t),
       h("div",null,
         h("button",{className:"tog",style:{fontSize:15},onClick:()=>setBeamOpen(o=>!o)},h("span",null,"盤頭長／織縮換算（選填）"),h("span",null,beamOpen?"▲":"▼")),
@@ -925,19 +925,32 @@ function ocalc(o){
 }
 const runMade=r=>sum((r.mades||[]).map(x=>num(x.q)||0));
 const runNeed=r=>{const rm=runMade(r);return sum((r.yarns||[]).map(y=>{const wy=num(y.wy);return wy===null?0:rm*wy}))};
+/* 緯紗依「布號」比對託工單（不是機台號）：機台布號 = 託工單布號 → 帶入該託工單的全部紗種；找不到才用機台自己的紗種 */
+function effYarns(m){
+  const k=norm(m.no||'');
+  if(k){
+    const mp=new Map();
+    st.orders.filter(o=>norm(o.no||'')===k).forEach(o=>(o.yarns||[]).forEach(y=>{
+      if(!(y.n||'').trim()&&!(y.b||'').trim())return;
+      const kx=kk(y.n||'',y.b||'');if(!mp.has(kx))mp.set(kx,{n:y.n||'',b:y.b||'',wy:y.wy})}));
+    if(mp.size)return [...mp.values()];
+  }
+  return m.yarns;
+}
 function mcalc(m,noRuns){
+  const EY=effYarns(m);
   const len=num(m.len),shr=num(m.shr);
   const qty=len!==null?Math.round(len*(1-(shr||0)/100)):null;
   const made=sum(m.mades.map(x=>num(x.q)||0));
   const map=new Map();
   const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,pull:0,used:0,stock:0,rm:0,cur:false};map.set(k,e)}return e};
-  const rowNeed=m.yarns.map(y=>{
+  const rowNeed=EY.map(y=>{
     const wy=num(y.wy),need=(qty!==null&&wy!==null)?qty*wy:0,e=get(y.n,y.b);
     e.need+=need;e.used+=wy!==null?made*wy:0;e.cur=true;
     return {need,has:wy!==null};
   });
   if(!noRuns)(m.runs||[]).forEach(r=>{const rm=runMade(r);(r.yarns||[]).forEach(y=>{const wy=num(y.wy);if(wy===null||!rm)return;const e=get(y.n,y.b);e.need+=rm*wy;e.used+=rm*wy;e.rm+=rm})});
-  const one=m.yarns.length===1?m.yarns[0]:null;
+  const one=EY.length===1?EY[0]:null;
   const put=(r,f)=>{
     const q=num(r.q)||0;if(!q)return;
     const e=(!r.n.trim()&&!r.b.trim()&&one)?get(one.n,one.b):get(r.n,r.b);
@@ -1210,7 +1223,7 @@ function scheduledFor(id){
 function machPairs(m){
   const mp=new Map();
   const add=x=>{if(!x)return;const n=(x.n||'').trim(),b=(x.b||'').trim();if(!n&&!b)return;mp.set(kk(n,b),{n,b})};
-  m.yarns.forEach(add);m.pulls.forEach(add);m.stocks.forEach(add);
+  effYarns(m).forEach(add);m.pulls.forEach(add);m.stocks.forEach(add);
   return [...mp.values()];
 }
 function machBatches(m,n){
@@ -1310,7 +1323,7 @@ function update(){
   const map=new Map();let bq=0,bn=0,bp=0;
   IDS.forEach(id=>{
     const m=st.mach[id],c=mcalc(m);
-    m.yarns.forEach(addDL);m.pulls.forEach(addDL);m.stocks.forEach(addDL);
+    effYarns(m).forEach(addDL);m.pulls.forEach(addDL);m.stocks.forEach(addDL);
     const ws=warnFrom(c);
     if(ws.length){warnIds.push(id);ws.forEach(w=>tW.rows.push([id,m.no.trim(),w.n||'（未填品代）',w.b||'—',w.pull||null,w.used,w.ratio===null?null:{pct:w.ratio*100},warnMsg(w)]))}
     (m.runs||[]).forEach(r=>tB.rows.push([id,(r.no||'').trim()+'（已換）',(r.coilNo||'').trim(),runMade(r)||null,runNeed(r)||null,null,null,'換布 '+(r.end?fmtDT(r.end):''),'']));
@@ -1356,10 +1369,10 @@ function update(){
     const rn=pn.querySelector('[data-o="runs"]');if(rn&&!rn.contains(document.activeElement))rn.innerHTML=runsHTML(m,st.sel);
     const mu=pn.querySelector('[data-o="mused"]');
     if(mu){
-      const yr=m.yarns.filter(y=>y.n.trim()||y.b.trim()||num(y.wy)!==null);
+      const yr=effYarns(m).filter(y=>y.n.trim()||y.b.trim()||num(y.wy)!==null);
       mu.innerHTML=yr.length?'<table><thead><tr><th>品代 批號</th><th class="n">每碼用量</th><th class="n">累計生產</th><th class="n">已用量</th></tr></thead><tbody>'+
         yr.map(y=>{const wy=num(y.wy);return '<tr><td>'+esc(lab(y.n,y.b)||'（未填品代）')+'</td><td class="n">'+fmt(wy)+'</td><td class="n">'+fmt(c.made||null)+'</td><td class="n"><b>'+fmt(wy!==null&&c.made?c.made*wy:null)+'</b></td></tr>'}).join('')+
-        '</tbody></table>':'<div class="empty">請先在「用紗計算」填寫紗種與每碼用紗量</div>';
+        '</tbody></table>':'<div class="empty">請先在機台填入布號（需有同布號的託工單，並填寫紗種與每碼用紗量）</div>';
     }
     const sg=sigOf(m),dirty=m.sig!==sg,has=hasData(m),ms=$('mstat'),mb=$('mSave');
     if(ms){
