@@ -68,6 +68,7 @@ input.bad{border-color:var(--warn);outline:2px solid var(--warn)}
 .rw.mrow{grid-template-columns:1.2fr 1.2fr 90px 90px}
 .rw.crow{grid-template-columns:1fr 1fr 1fr 1fr 84px 84px}
 .rw.crow button{height:38px;margin-top:2px}
+.coildone{margin:-4px 0 8px;padding:5px 10px;border-radius:8px;background:rgba(46,125,87,.14);color:var(--ok);font-weight:700;font-size:.9rem}
 .kdisp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 8px 10px;font-size:1.3rem;font-variant-numeric:tabular-nums}.kdisp span{word-break:break-all}.kdisp b{color:var(--accent);white-space:nowrap}
 .kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kgrid button{height:52px;font-size:1.4rem;padding:0}.kgrid .kop{background:var(--sh,rgba(127,127,127,.12));font-weight:700}
 .dkp{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
@@ -1117,6 +1118,11 @@ function orderStatus(){
   return has?['未儲存',1]:['新單',0];
 }
 let coilOpen=false;
+function coilDone(c){
+  try{const k=norm(c.no||'');if(!k)return null;
+    const L=JSON.parse(localStorage.getItem('prodLog')||'[]').filter(x=>x.type==='fin'&&!x.x&&norm(x.no||'')===k&&(!c.m||!x.m||x.m===c.m));
+    return L.length?L[L.length-1]:null}catch(e){return null}
+}
 function subHTML(s){
   const a=A('sub',0),cd=s.cdraft||(s.cdraft=coilDraftB()),ac=A('sub',0,'cdraft',0);
   return '<div class="card" data-ci="0"><div class="card-h"><b>01｜託工單<span id="subNo">'+((s.no||'').trim()?'　'+esc(s.no.trim()):'')+'</span></b><span class="hb"><span class="stat" id="stat"></span><button class="p" type="button" data-act="saveOrder" data-role="saveBtn">儲存</button><button type="button" data-act="newOrder">新增</button><button type="button" class="x" data-act="delOrder" data-role="delBtn" disabled>刪除</button></span></div>'+
@@ -1124,9 +1130,11 @@ function subHTML(s){
     '<div class="sh">A｜入庫盤頭</div>'+
     '<div class="rw crow">'+inp(ac,'d','日期',cd.d,{date:1,dq:1})+inp(ac,'no','盤頭號',cd.no,{up:1})+inp(ac,'l','盤頭長度 (碼)',cd.l,{n:1})+
       '<button class="p" type="button" data-act="addCoil">新增</button><button type="button" data-act="clrCoil">清除</button></div>'+
-    '<button class="add" type="button" data-act="toggleCoils" style="margin:8px 0;text-align:left">'+(coilOpen?'▲':'▼')+' 已入庫盤頭記錄（'+s.coils.length+' 筆，已排定 '+s.coils.filter(x=>x.ok).length+' 筆）</button>'+
+    '<button class="add" type="button" data-act="toggleCoils" style="margin:8px 0;text-align:left">'+(coilOpen?'▲':'▼')+' 已入庫盤頭記錄（'+s.coils.length+' 筆，已排定 '+s.coils.filter(x=>x.ok).length+' 筆，已完成 '+s.coils.filter(x=>coilDone(x)).length+' 筆）</button>'+
     (!coilOpen?'':s.coils.length?s.coils.map((c,j)=>{const b=A('sub',0,'coils',j);
-      return '<div class="rw k6">'+inp(b,'d','日期',c.d,{date:1})+inp(b,'no','盤頭號',c.no,{up:1})+inp(b,'l','盤頭長度 (碼)',c.l,{n:1})+machSel(b,'m','預排機台號',c.m)+chk(b,'ok','排定',c.ok,!c.m)+xbtn('rmCoil','data-j="'+j+'"')+'</div>'}).join(''):'<div class="empty">尚無入庫盤頭記錄</div>')+
+      const fd=coilDone(c);
+      return '<div class="rw k6">'+inp(b,'d','日期',c.d,{date:1})+inp(b,'no','盤頭號',c.no,{up:1})+inp(b,'l','盤頭長度 (碼)',c.l,{n:1})+machSel(b,'m','預排機台號',c.m)+chk(b,'ok','排定',c.ok,!c.m)+xbtn('rmCoil','data-j="'+j+'"')+'</div>'+
+        (fd?'<div class="coildone">✓ 完成　'+esc(fd.m||'')+' 機台　'+fmtD(Link.isoD(fd.at))+(fd.qty!=null?'　已生產 '+fmt(num(fd.qty))+' 碼':'')+'</div>':'')}).join(''):'<div class="empty">尚無入庫盤頭記錄</div>')+
     '<div class="eq estrow" style="margin-top:14px">'+out('總盤頭數量 (碼)','ct')+'<span class="op">×</span>'+inp(a,'shr','預估織縮 (%)',s.shr,{n:1})+'<span class="op">=</span>'+out('預估可生產數量 (碼)','est')+'</div>'+
     '<div class="sh">B｜每碼用紗量</div>'+
     s.yarns.map((y,j)=>{const b=A('sub',0,'yarns',j);
@@ -1937,6 +1945,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
   if(curTab===2&&n!==2)Link.closeCalc();
   document.querySelectorAll('.pg').forEach((p,k)=>p.classList.toggle('hide',k!==n));
   if(n===2)Link.openCalc();
+  if(n===0)renderSub();
   curTab=n;
   document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===b));
   window.scrollTo(0,0);
