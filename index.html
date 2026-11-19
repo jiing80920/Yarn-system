@@ -68,6 +68,8 @@ input.bad{border-color:var(--warn);outline:2px solid var(--warn)}
 .rw.mrow{grid-template-columns:1.2fr 1.2fr 90px 90px}
 .rw.crow{grid-template-columns:1fr 1fr 1fr 1fr 84px 84px}
 .rw.crow button{height:38px;margin-top:2px}
+.kdisp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 8px 10px;font-size:1.3rem;font-variant-numeric:tabular-nums}.kdisp span{word-break:break-all}.kdisp b{color:var(--accent);white-space:nowrap}
+.kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kgrid button{height:52px;font-size:1.4rem;padding:0}.kgrid .kop{background:var(--sh,rgba(127,127,127,.12));font-weight:700}
 .dkp{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
 .dkp.on{display:block}
 .dkp .hd{display:flex;gap:8px;margin-bottom:8px}
@@ -328,7 +330,7 @@ button:active{filter:brightness(1.4)}
 </style></head><body><div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"><\/script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"><\/script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js" onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';document.head.appendChild(s)"><\/script>
 <script>
 //ALGO
 const DEF_SCH={sd:1,st:"08:00",ed:0,et:"08:00"};
@@ -371,7 +373,7 @@ function coilList(){const s=ysState(),out=[];
   const push=o=>(o.coils||[]).forEach(c=>{if(c&&nk(c.no))out.push({no:String(c.no).trim(),fab:o.no||"",shr:o.shr==null?"":o.shr,len:c.l||"",m:c.m||"",ok:!!c.ok})});
   (s.orders||[]).forEach(push);if(s.cur)push(s.cur);return out}
 function findCoil(no,mid){const k=nk(no);if(!k)return null;const l=coilList().filter(c=>nk(c.no)===k);return l.find(c=>c.m===mid)||l[0]||null}
-const NT0={tw:"",cm:"",inch:"",other:""};
+const NT0={tw:"",ten:"",tl:"",tr:"",ph:"",op:"",cm:"",inch:"",other:""};
 function initNote(n){const x=loadX()[n]||{};return Object.assign({},NT0,x.note||{})}
 function initNo(n){const x=loadX()[n]||{};return x.no||(((ysState().mach||{})[n])||{}).coilNo||""}
 const LK="prodLog";
@@ -542,16 +544,24 @@ function App(){
       saveMachine(mid,curData);
       const all=loadAll();
       const list=MACHINES.map(n=>{const d=all[n]||{};const recs=(d.recs||[]).map(r=>({qty:r.qty,time:new Date(r.time)}));return {n:n,d:d,recs:recs,r:computeRow({total:d.total||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:recs},cfg)}});
-      const maxRec=Math.max(10,...list.map(x=>x.recs.length));
-      const head=["機台","轉速","日產量","總成品數量","條數","效率(%)","起算時間"];
+      const XB=loadX(),FL=loadLog().filter(x=>x.type==="fin"&&!x.x);
+      const finOf=n=>FL.filter(x=>x.m===n&&x.fa!==((XB[n]||{}).fin||"")).sort((a,b)=>a.at-b.at);
+      const maxRec=Math.max(1,...list.map(x=>x.recs.length),...FL.map(x=>(x.rc||[]).length));
+      const head=["機台","轉速","日產量","總成品數量","條數","效率(%)","起算時間","已織","剩餘數量","預計完工日期時間","記錄筆數","狀態"];
       for(let i=1;i<=maxRec;i++)head.push("產量"+i);
-      head.push("已織","剩餘數量","預計完工日期時間");
-      const rows=[head].concat(list.map(x=>{
+      const rows=[head],yel=[];
+      list.forEach(x=>{
+        finOf(x.n).forEach(f=>{
+          const rc=f.rc||[],T=parseFloat(f.total);
+          const row=[x.n,"","",f.total||"","","","",f.qty==null?"":f.qty,(f.total!==""&&f.total!=null&&!isNaN(T)&&f.qty!=null)?T-f.qty:"","已完工　"+fmtFull(new Date(f.at)).slice(0,16),rc.length||"","完工"+(f.no?"（盤頭 "+f.no+(f.fab?"／"+f.fab:"")+"）":"")];
+          for(let i=0;i<maxRec;i++)row.push(rc[i]?rc[i].q:"");
+          yel.push(rows.length);rows.push(row)});
         const has=!!all[x.n];const T=parseFloat(x.d.total);
+        const isFin=x.r.finish==="已完工"||!!(XB[x.n]||{}).fin;
         const row=[x.n,has?x.d.rpm||"":"",x.r.daily!==null?Math.round(x.r.daily*100)/100:"",has?x.d.total||"":"",has?x.d.strips||"":"",has?x.d.eff||"":"",has?(x.d.startStr||"").replace("T"," "):""];
+        row.push(x.recs.length?x.r.done:"",(has&&x.d.total!==""&&!isNaN(T))?T-x.r.done:"",x.r.finish,x.recs.length||"",has?(isFin?"完工":"生產中"):"");
         for(let i=0;i<maxRec;i++)row.push(x.recs[i]?x.recs[i].qty:"");
-        row.push(x.recs.length?x.r.done:"",(has&&x.d.total!==""&&!isNaN(T))?T-x.r.done:"",x.r.finish);
-        return row}));
+        if(isFin)yel.push(rows.length);rows.push(row)});
       const detail=[["機台","第幾筆","數量","記錄時間"]];
       list.forEach(x=>x.recs.forEach((r,i)=>detail.push([x.n,i+1,r.qty,fmtFull(r.time)])));
       const rk=x=>x.r.finish==="已完工"?-1:(x.r.finishAt!==null?x.r.finishAt:Infinity);
@@ -561,15 +571,16 @@ function App(){
       const ws0=XLSX.utils.aoa_to_sheet(sumRows);
       ws0["!cols"]=[{wch:8},{wch:11},{wch:13},{wch:11},{wch:11},{wch:11},{wch:20}];
       const ws1=XLSX.utils.aoa_to_sheet(rows);
-      ws1["!cols"]=head.map((t,i)=>({wch:i===0?8:(i===6||i===head.length-1)?20:11}));
+      ws1["!cols"]=head.map((t,i)=>({wch:i===0?8:(i===6||i===9)?20:(i===11)?24:11}));
       ws1["!freeze"]={xSplit:1,ySplit:1};
+      yel.forEach(r=>{for(let c=0;c<head.length;c++){const ad=XLSX.utils.encode_cell({r:r,c:c});if(!ws1[ad])ws1[ad]={t:"s",v:""};ws1[ad].s={fill:{patternType:"solid",fgColor:{rgb:"FFFF00"}}}}});
       const ws2=XLSX.utils.aoa_to_sheet(detail);
       ws2["!cols"]=[{wch:8},{wch:8},{wch:12},{wch:20}];
       const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量","生產明細"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":x.type==="switch"?"換布號":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",(x.type==="fin"||x.type==="switch")?(x.qty==null?"":x.qty):"",(x.rc||[]).map(r=>r.d+" "+r.q).join("；")]));
       const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16},{wch:40}];
       const XA=loadX();
-      const nrows=[["機台","機上緯密(T)","捲取幅寬(公分)","捲取幅寬(英吋)","其他備註"]].concat(MACHINES.map(n=>{const t=Object.assign({},NT0,(XA[n]||{}).note||{});return [n,t.tw,t.cm,t.inch,t.other]}));
-      const ws4=XLSX.utils.aoa_to_sheet(nrows);ws4["!cols"]=[{wch:8},{wch:12},{wch:14},{wch:14},{wch:40}];
+      const nrows=[["機台","機上緯密(T)","張力(N)","左絞邊","右絞邊","平綜","開口","捲取幅寬(公分)","捲取幅寬(英吋)","其他備註"]].concat(MACHINES.map(n=>{const t=Object.assign({},NT0,(XA[n]||{}).note||{});return [n,t.tw,t.ten,t.tl,t.tr,t.ph,t.op,t.cm,t.inch,t.other]}));
+      const ws4=XLSX.utils.aoa_to_sheet(nrows);ws4["!cols"]=[{wch:8},{wch:12},{wch:9},{wch:9},{wch:9},{wch:9},{wch:9},{wch:14},{wch:14},{wch:40}];
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws0,"完工時間總表");
       XLSX.utils.book_append_sheet(wb,ws1,"19台總表");
@@ -606,6 +617,7 @@ function App(){
     };
     rd.readAsText(f);
   };
+  const txIn=(v,set)=>h("input",{type:"text",value:v,onChange:e=>set(e.target.value)});
   const numIn=(v,set)=>h("input",{type:"text",inputMode:"decimal",value:v,placeholder:"",onChange:e=>set(e.target.value.replace(/[^0-9.]/g,""))});
   const keys=["1","2","3","4","5","6","7","8","9","清空","0","刪除"];
   return h("div",null,
@@ -683,7 +695,16 @@ function App(){
     h("div",{className:"card"},
       h("button",{className:"tog",onClick:()=>setNtOpen(o=>!o)},h("span",null,"04｜備註"),h("span",null,ntOpen?"▲":"▼")),
       ntOpen&&h("div",{style:{marginTop:8}},
-        h("label",null,"機上緯密（T）"),numIn(nt.tw,v=>setNt(p=>Object.assign({},p,{tw:v})),),
+        h("div",{style:{fontWeight:700,margin:"4px 0 2px",color:"var(--ac)"}},"機台設定"),
+        h("div",{className:"row"},
+          h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"機上緯密（T）"),numIn(nt.tw,v=>setNt(p=>Object.assign({},p,{tw:v})))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"張力（N）"),numIn(nt.ten,v=>setNt(p=>Object.assign({},p,{ten:v}))))),
+        h("div",{className:"row"},
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"左絞邊"),txIn(nt.tl,v=>setNt(p=>Object.assign({},p,{tl:v})))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"右絞邊"),txIn(nt.tr,v=>setNt(p=>Object.assign({},p,{tr:v}))))),
+        h("div",{className:"row"},
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"平綜"),txIn(nt.ph,v=>setNt(p=>Object.assign({},p,{ph:v})))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"開口"),txIn(nt.op,v=>setNt(p=>Object.assign({},p,{op:v}))))),
         h("label",null,"捲取幅寬（公分／英吋，輸入其一自動換算）"),
         h("div",{className:"row"},
           h("div",{style:{flex:1}},h("label",{style:{marginTop:0}},"公分"),numIn(nt.cm,v=>setNt(p=>Object.assign({},p,{cm:v,inch:v===""?"":String(Math.round(parseFloat(v)/2.54*100)/100)})))),
@@ -739,7 +760,7 @@ function App(){
       h("label",{className:"wide",style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:52,border:"1px solid var(--line)",background:"#0b121c",borderRadius:12,color:"var(--tx)",fontSize:16,margin:"6px 0 0",cursor:"pointer"}},"匯入備份（JSON）",h("input",{type:"file",accept:".json,application/json",style:{display:"none"},onChange:importJson})),
       expMsg&&h("div",{className:"ok"},expMsg),
       h("div",{className:"note"},"完工與選用新盤頭的記錄會自動存檔（目前 "+loadLog().filter(x=>!x.x).length+" 筆），一併收進 Excel 的「完工與盤頭記錄」工作表與 JSON 備份。"),
-      h("div",{className:"note"},"Excel 含五個工作表（另有「完工與盤頭記錄」與「機台備註」）：「完工時間總表」（有資料的機台依完工時間排序）、「19台總表」（19 台機台一覽，欄位同儲存資料表並加上總成品數量、條數、起算時間、剩餘數量）與「生產紀錄明細」（每筆數量與時間）；JSON 備份含所有機台資料與開機／休息設定，可於換手機或清除資料後匯入還原。手機上匯出會開啟分享選單，可選「儲存到檔案」。"))),
+      h("div",{className:"note"},"「19台總表」的產量欄放在最右邊，筆數超過 10 筆會自動往右延伸，並有「記錄筆數」欄；完整每筆日期時間請看「生產紀錄明細」。Excel 含五個工作表（另有「完工與盤頭記錄」與「機台備註」）：「完工時間總表」（有資料的機台依完工時間排序）、「19台總表」（19 台機台一覽，欄位同儲存資料表並加上總成品數量、條數、起算時間、剩餘數量）與「生產紀錄明細」（每筆數量與時間）；JSON 備份含所有機台資料與開機／休息設定，可於換手機或清除資料後匯入還原。手機上匯出會開啟分享選單，可選「儲存到檔案」。"))),
     h("button",{className:"danger",onClick:clearAll},"一鍵清除所有資料"));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(h(App));
@@ -801,6 +822,7 @@ function load(){
     if(m.sig===undefined)m.sig='';if(m.savedAt===undefined)m.savedAt=0;
     if(!Array.isArray(m.stocks))m.stocks=[];
     m.stocks=m.stocks.filter(x=>x&&num(x.q)>0);
+    {const mp=new Map();m.stocks.forEach(x=>{const k=kk(x.n||'',x.b||'');const e=mp.get(k);if(e){e.q=String(Math.round(((num(e.q)||0)+(num(x.q)||0))*1000)/1000);if(String(x.d)>String(e.d))e.d=x.d}else mp.set(k,x)});m.stocks=[...mp.values()]}
     m.pulls.forEach(p=>{if(p.n===undefined){const y=m.yarns[parseInt(p.y)||0]||{};p.n=y.n||'';p.b=y.b||''}});
     m.pulls=m.pulls.filter(x=>x&&num(x.q)>0);
   });
@@ -864,7 +886,7 @@ function inp(a,f,label,v,o){
   o=o||{};
   const dv=o.date?fmtD(v):o.dt?fmtDT(v):esc(v);
   const lc=[o.w?'w':'',o.cls||''].filter(Boolean).join(' ');
-  return '<label'+(lc?' class="'+lc+'"':'')+'>'+label+'<input '+a+' data-f="'+f+'"'+(o.n?' class="num" inputmode="decimal" data-num="1"':'')+
+  return '<label'+(lc?' class="'+lc+'"':'')+'>'+label+'<input '+a+' data-f="'+f+'"'+(o.n?' class="num" inputmode="'+(o.calc&&Dkp.coarse()?'none':'decimal')+'" data-num="1"'+(o.calc?' data-calc="1"':''):'')+
     (o.up?' data-up="1"':'')+(o.date?' data-date="1" inputmode="none" placeholder="例 11/18 或 115/11/17"':'')+(o.dt?' data-date="2" inputmode="none" placeholder="例 11/18 08:00（只填日期不連動計算機）"':'')+
     (o.t?' type="'+o.t+'"':'')+(o.list?' list="'+o.list+'"':'')+' value="'+dv+'">'+(o.dq?'<span class="dq"><button type="button" data-act="dq" data-n="0">今天</button><button type="button" data-act="dq" data-n="1">昨天</button><button type="button" data-act="dq" data-n="2">前天</button></span>':'')+'</label>';
 }
@@ -1204,7 +1226,7 @@ function panelHTML(id){
   const rows4=(list,l,qLabel,act)=>list.map((p,j)=>{const b=A('mach',id,l,j);
     return '<div class="rw p4">'+inp(b,'d','日期',p.d,{date:1})+nb(b,p)+inp(b,'q',qLabel,p.q,{n:1})+xbtn(act,'data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
   const Ad=A('mach',id,'draft',0),Ap=A('mach',id,'pdraft',0),As=A('mach',id,'sdraft',0);
-  const drow=(ad,dr,ql,add,clr)=>'<div class="rw drow">'+nb(ad,dr)+inp(ad,'d','日期',dr.d,{date:1,dq:1})+inp(ad,'q',ql,dr.q,{n:1})+
+  const drow=(ad,dr,ql,add,clr,calc)=>'<div class="rw drow">'+nb(ad,dr)+inp(ad,'d','日期',dr.d,{date:1,dq:1})+inp(ad,'q',ql,dr.q,{n:1,calc:calc})+
     '<button class="p" type="button" data-act="'+add+'" data-id="'+id+'">新增</button><button type="button" data-act="'+clr+'" data-id="'+id+'">清除</button></div>';
   return '<div class="card"><div class="card-h"><b>機台 #'+id+'</b><span class="hb"><span class="stat" id="mstat"></span><button class="p" type="button" data-act="saveMach" data-id="'+id+'" id="mSave">儲存</button></span></div><div data-o="warn"></div>'+
     '<div class="sh" style="margin-top:0;border-top:0;padding-top:0">01｜生產設定</div>'+
@@ -1225,8 +1247,8 @@ function panelHTML(id){
     '<button class="add" type="button" data-act="tg" data-k="mused" style="margin:6px 0;text-align:left">'+(fold.mused?'▲':'▼')+' C｜各紗種已用紗量（已生產數量 × 每碼用紗量）</button>'+
     '<div style="display:'+(fold.mused?'block':'none')+'"><div data-o="mused"></div></div>'+
     '<button class="add" type="button" data-act="tg" data-k="stock" style="margin:6px 0;text-align:left">'+(fold.stock?'▲':'▼')+' D｜廠內庫存記錄</button>'+
-    '<div style="display:'+(fold.stock?'block':'none')+'">'+drow(As,m.sdraft,'庫存量 (kg)','addStock','clrStock')+
-    '<div class="sh2">累計庫存 (kg)</div><div data-o="slist"></div></div>'+
+    '<div style="display:'+(fold.stock?'block':'none')+'">'+drow(As,m.sdraft,'庫存量 (kg)','addStock','clrStock',1)+
+    '<div class="sh2">目前庫存 (kg)</div><div data-o="slist"></div></div>'+
     '<div class="sh">04｜整合</div><div style="overflow-x:auto">'+
     '<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">差異</th><th class="n">實際<br>用量</th><th class="n">比例</th></tr></thead><tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div></div>';
 }
@@ -1320,7 +1342,7 @@ function update(){
     c.rowNeed.forEach((x,j)=>setp('yn'+j,(x.need||x.has)?fmt(x.need):'—'));
     const wbox=pn.querySelector('[data-o="warn"]'),ws=warnFrom(c);
     if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg）</span>').join('')+'</div>':'';
-    const sl=pn.querySelector('[data-o="slist"]');if(sl&&!sl.contains(document.activeElement))sl.innerHTML=groupList(m.stocks,st.sel,'rmStock','庫存量 (kg)');
+    const sl=pn.querySelector('[data-o="slist"]');if(sl&&!sl.contains(document.activeElement))sl.innerHTML=stockList(m.stocks,st.sel);
     const pl=pn.querySelector('[data-o="plist"]');if(pl&&!pl.contains(document.activeElement))pl.innerHTML=groupList(m.pulls,st.sel,'rmPull','領用數量 (kg)');
     const ml=pn.querySelector('[data-o="mlist"]');if(ml)ml.innerHTML=madeList(m.mades,st.sel);
     const rn=pn.querySelector('[data-o="runs"]');if(rn&&!rn.contains(document.activeElement))rn.innerHTML=runsHTML(m,st.sel);
@@ -1442,6 +1464,19 @@ function addCoilRec(){
   save();renderSub();
   setTimeout(()=>{const e=document.querySelector('#subList [data-l="cdraft"][data-f="no"]');if(e)e.focus()},0);
 }
+function stockList(list,id){
+  if(!list.length)return '<div class="empty">尚無庫存記錄</div>';
+  const L=list.map((x,j)=>({x,j})).sort((a,b)=>(a.x.n||'').localeCompare(b.x.n||'','zh-TW')||(a.x.b||'').localeCompare(b.x.b||'','zh-TW',{numeric:true}));
+  let total=0;
+  let h='<table><thead><tr><th>日期</th><th class="n">庫存量 (kg)</th><th class="n">刪除</th></tr></thead><tbody>';
+  L.forEach(({x,j})=>{
+    total+=num(x.q)||0;
+    const at='data-sc="mach" data-i="'+id+'" data-l="stocks" data-j="'+j+'"';
+    h+='<tr class="gh"><td colspan="3">'+esc(lab((x.n||'').trim(),(x.b||'').trim())||'（未指定品代／批號）')+'</td></tr>'+
+      '<tr><td><input class="ce" '+at+' data-f="d" data-date="1" inputmode="none" value="'+fmtD(x.d)+'"></td><td class="n"><input class="ce num" '+at+' data-f="q" data-num="1" data-calc="1" inputmode="'+(Dkp.coarse()?'none':'decimal')+'" value="'+esc(x.q)+'"></td><td class="n"><button class="sm x" style="height:auto;padding:4px 10px" type="button" data-act="rmStock" data-id="'+id+'" data-j="'+j+'">刪除</button></td></tr>';
+  });
+  return h+'</tbody><tfoot><tr><td>合計</td><td class="n">'+fmt(total)+'</td><td class="n">共 '+list.length+' 種</td></tr></tfoot></table>';
+}
 function addRec(kind){
   const M=st.mach[st.sel],made=kind==='made',stock=kind==='stock';
   const dr=made?M.draft:stock?M.sdraft:M.pdraft,list=made?M.mades:stock?M.stocks:M.pulls,q=num(dr.q);
@@ -1449,7 +1484,8 @@ function addRec(kind){
   const d=dr.d||today();
   const rec={d,n:made?'':dr.n,b:made?'':dr.b,q:String(q)};
   if(made)rec.t=(d===today())?Date.now():Date.parse(d+'T12:00:00');   // 記錄時間跟著所選日期，連動到計算機
-  list.push(rec);
+  const ex=stock?list.find(x=>kk(x.n,x.b)===kk(rec.n,rec.b)):null;
+  if(ex){ex.q=rec.q;ex.d=rec.d}else list.push(rec);
   dr.q='';save();renderMach();
   const key=made?'draft':stock?'sdraft':'pdraft';
   setTimeout(()=>{const e=document.querySelector('#panel [data-l="'+key+'"][data-f="q"]');if(e)e.focus()},0);
@@ -1847,6 +1883,54 @@ document.addEventListener('focusout',e=>{
   if(!Dkp.inp||e.target!==Dkp.inp)return;
   setTimeout(()=>{const a=document.activeElement;if(!(a&&a.dataset&&(a.dataset.date||a.dataset.md))&&!(Dkp.el&&Dkp.el.contains(a)))Dkp.close()},0);
 });
+const Kpd={el:null,inp:null,ex:'',fresh:true,
+  build(){
+    const e=document.createElement('div');e.className='dkp';e.id='kpd';
+    const K=['7','8','9','÷','4','5','6','×','1','2','3','−','0','.','⌫','+'];
+    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kgrid">'+K.map(k=>'<button type="button" data-k="'+k+'"'+('÷×−+'.includes(k)?' class="kop"':'')+'>'+k+'</button>').join('')+'</div><div class="hd" style="margin-top:8px"><button type="button" data-k="X">取消</button><button type="button" data-k="C">清空</button><button type="button" class="ok" data-k="OK">完成</button></div>';
+    e.addEventListener('mousedown',ev=>ev.preventDefault());
+    e.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b)this.press(b.dataset.k)});
+    document.body.appendChild(e);this.el=e;
+  },
+  val(){
+    let t=this.ex.replace(/[+×÷−]+$/,'');if(!t)return null;
+    if(!/^[0-9.+×÷−]+$/.test(t))return null;
+    try{const r=Function('"use strict";return ('+t.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')+')')();
+      return isFinite(r)?Math.round(r*1000)/1000:null}catch(e){return null}
+  },
+  show(){$('kex').textContent=this.ex||'0';const v=this.val();$('kres').textContent=(v===null||/^[0-9.]*$/.test(this.ex))?'':'= '+v},
+  open(i){
+    if(!this.el)this.build();this.inp=i;this.ex=(i.value||'').trim();this.fresh=true;
+    this.el.style.display='block';document.body.style.paddingBottom='360px';this.show();
+    setTimeout(()=>{try{i.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}},50);
+  },
+  press(k){
+    if(k==='X'){this.close();return}
+    if(k==='OK'){this.apply();return}
+    if(k==='C'){this.ex='';this.fresh=false;this.show();return}
+    if(k==='⌫'){this.ex=this.fresh?'':this.ex.slice(0,-1);this.fresh=false;this.show();return}
+    const op='÷×−+'.includes(k);
+    if(this.fresh&&!op)this.ex='';
+    this.fresh=false;
+    if(op){if(!this.ex)return;if(/[+×÷−]$/.test(this.ex))this.ex=this.ex.slice(0,-1)}
+    this.ex+=k;this.show();
+  },
+  apply(){
+    const i=this.inp,v=this.val();
+    if(i&&v!==null){i.value=String(v);i.dispatchEvent(new Event('input',{bubbles:true}))}
+    this.close();if(i)i.blur();setTimeout(()=>{try{update()}catch(e){}},0);
+  },
+  close(){if(this.el)this.el.style.display='none';document.body.style.paddingBottom='';this.inp=null}
+};
+document.addEventListener('focusin',e=>{
+  const t=e.target;
+  if(t.tagName==='INPUT'&&t.dataset&&t.dataset.calc&&Dkp.coarse())Kpd.open(t);
+  else if(Kpd.inp&&!(Kpd.el&&Kpd.el.contains(t)))Kpd.close();
+});
+document.addEventListener('click',e=>{const t=e.target;if(t.tagName==='INPUT'&&t.dataset&&t.dataset.calc&&Dkp.coarse()&&!Kpd.inp)Kpd.open(t)});
+document.addEventListener('touchstart',e=>{
+  const t=e.target;if(Kpd.inp&&Kpd.el&&!Kpd.el.contains(t)&&!(t.dataset&&t.dataset.calc))Kpd.apply();
+},true);
 let curTab=0;
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
   const n=+b.dataset.tab;
