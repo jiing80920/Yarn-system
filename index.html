@@ -1333,25 +1333,28 @@ function update(){
       bq+=c.qty||0;bn+=c.need;bp+=c.pull;
     }
     c.ys.forEach(x=>{
-      if(!(x.need||x.pull||x.used))return;
+      if(!(x.need||x.pull||x.used||x.stock))return;
       const k=kk(x.n,x.b);
       let e=map.get(k);
-      if(!e){e={n:x.n,b:x.b,need:0,pull:0,used:0,m:{}};map.set(k,e)}
-      e.need+=x.need;e.pull+=x.pull;e.used+=x.used;e.m[id]=(e.m[id]||0)+x.need;
+      if(!e){e={n:x.n,b:x.b,need:0,pull:0,used:0,stock:0,m:{},ms:{}};map.set(k,e)}
+      e.need+=x.need;e.pull+=x.pull;e.used+=x.used;e.stock+=x.stock;if(x.need||x.pull||x.used)e.m[id]=(e.m[id]||0)+x.need;if(x.stock)e.ms[id]=(e.ms[id]||0)+x.stock;
     });
   });
   tB.foot=['合計','','',bq||null,bn||null,bp||null,{v:remOf(bp,bn)},'',''];
 
   /* 相同品代＋批號統整 */
   const list=[...map.values()].sort((a,b)=>a.n.localeCompare(b.n,'zh-TW')||a.b.localeCompare(b.b,'zh-TW',{numeric:true}));
-  const tC={title:'相同品代＋批號統整',head:[['品代'],['批號'],['所需用紗量 (kg)',1],['領用合計 (kg)',1],['剩餘未領 (kg)',1],['已用紗量 (kg)',1],['使用機台']],rows:[],foot:[]};
-  let cn=0,cp=0,cu=0;
+  const tC={title:'相同品代＋批號統整',head:[['品代'],['批號'],['所需用紗量 (kg)',1],['領用合計 (kg)',1],['剩餘未領 (kg)',1],['已用紗量 (kg)',1],['庫存 (kg)',1],['使用機台']],rows:[],foot:[]};
+  const tS={title:'庫存紗統整（相同品代＋批號）',head:[['品代'],['批號'],['庫存合計 (kg)',1],['存放機台']],rows:[],foot:[]};
+  let cn=0,cp=0,cu=0,cs=0;
   list.forEach(e=>{
-    cn+=e.need;cp+=e.pull;cu+=e.used;
-    tC.rows.push([e.n||'（未填品代）',e.b||'（未填批號）',e.need||null,e.pull||null,{v:remOf(e.pull,e.need)},e.used||null,machStr(e.m)]);
+    cn+=e.need;cp+=e.pull;cu+=e.used;cs+=e.stock;
+    tC.rows.push([e.n||'（未填品代）',e.b||'（未填批號）',e.need||null,e.pull||null,{v:remOf(e.pull,e.need)},e.used||null,e.stock||null,machStr(e.m)]);
+    if(e.stock)tS.rows.push([e.n||'（未填品代）',e.b||'（未填批號）',e.stock,machStr(e.ms)]);
   });
-  tC.foot=['合計','',cn||null,cp||null,{v:remOf(cp,cn)},cu||null,''];
-  TABLES=[tW,tC,tB,tA,tE,tD];
+  tC.foot=['合計','',cn||null,cp||null,{v:remOf(cp,cn)},cu||null,cs||null,''];
+  tS.foot=['合計','',cs||null,''];
+  TABLES=[tW,tC,tS,tB,tA,tE,tD];
   window._warnIds=warnIds;
 
   /* 目前機台面板 */
