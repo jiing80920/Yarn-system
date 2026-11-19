@@ -498,8 +498,15 @@ function App(){
     setEd(null);setErr("")};
   const toggleFin=()=>{
     if(fin){saveLog(loadLog().map(x=>(x.type==="fin"&&x.m===mid&&x.fa===fin)?Object.assign({},x,{x:1}):x));setFin("");return}
-    if(window.confirm("確定「"+mid+"」機台已完工？")){const f=new Date().toISOString();
-      logAdd({type:"fin",m:mid,no:cno,fab:cm?cm.fab:"",len:cm?cm.len:beam,qty:done,total:total,at:Date.now(),fa:f});setFin(f)}};
+    askP("確定「"+mid+"」機台已完工？",()=>{const f=new Date().toISOString();
+      logAdd({type:"fin",m:mid,no:cno,fab:cm?cm.fab:"",len:cm?cm.len:beam,qty:done,total:total,at:Date.now(),fa:f,rc:recs.map(r=>({d:mmdd(new Date(r.time)),q:r.qty}))});setFin(f);
+      const nx=nextCoil();
+      if(nx)setTimeout(()=>askP("「"+mid+"」已完工並存檔。\n是否開啟此機台的下一張託工單？\n布號 "+(nx.fab||"—")+"／盤頭 "+nx.no+"（"+(nx.len||"—")+" 碼）\n確定後開始新單的生產紀錄。",()=>startNext(nx)),60)})};
+  const askP=(msg,fn)=>{try{if(window.parent&&window.parent!==window&&typeof window.parent.ask==="function"){window.parent.ask(msg,fn);return}}catch(e){}if(window.confirm(msg))fn()};
+  const nextCoil=()=>{const fins=loadLog().filter(x=>x.type==="fin"&&!x.x&&x.m===mid).map(x=>nk(x.no)),L=[];
+    (ysState().orders||[]).forEach(o=>(o.coils||[]).forEach(c=>{if(c&&c.ok&&c.m===mid&&nk(c.no)&&nk(c.no)!==nk(cno)&&fins.indexOf(nk(c.no))<0)L.push({no:c.no,fab:o.no||"",len:c.l,key:o.id+"|"+c.u})}));return L[0]||null};
+  const startNext=nx=>{clearRecs();setFin("");pickCoil(nx.no);setStartStr(toInput(new Date()));
+    try{localStorage.setItem("prodNext",JSON.stringify({m:mid,no:nx.no,key:nx.key,at:Date.now()}))}catch(e){}};
   const cm=cno?findCoil(cno,mid):null,cl=coilList();
   const matchMsg=!cno?null:!cm?{t:"✗ 查無此盤頭號（請先在「一、託工單」的入庫盤頭輸入）",w:1}
     :cm.m&&cm.m!==mid?{t:"⚠ 已比對：布號 "+cm.fab+"，但預排機台為 "+cm.m,w:1}
@@ -558,8 +565,8 @@ function App(){
       ws1["!freeze"]={xSplit:1,ySplit:1};
       const ws2=XLSX.utils.aoa_to_sheet(detail);
       ws2["!cols"]=[{wch:8},{wch:8},{wch:12},{wch:20}];
-      const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":x.type==="switch"?"換布號":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",(x.type==="fin"||x.type==="switch")?(x.qty==null?"":x.qty):""]));
-      const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16}];
+      const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量","生產明細"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":x.type==="switch"?"換布號":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",(x.type==="fin"||x.type==="switch")?(x.qty==null?"":x.qty):"",(x.rc||[]).map(r=>r.d+" "+r.q).join("；")]));
+      const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16},{wch:40}];
       const XA=loadX();
       const nrows=[["機台","機上緯密(T)","捲取幅寬(公分)","捲取幅寬(英吋)","其他備註"]].concat(MACHINES.map(n=>{const t=Object.assign({},NT0,(XA[n]||{}).note||{});return [n,t.tw,t.cm,t.inch,t.other]}));
       const ws4=XLSX.utils.aoa_to_sheet(nrows);ws4["!cols"]=[{wch:8},{wch:12},{wch:14},{wch:14},{wch:40}];
@@ -643,10 +650,10 @@ function App(){
           h("button",{className:"wide",onClick:resetSch},"還原原廠預設"),
           schMsg&&h("div",{className:"ok"},schMsg)))),
     h("div",{className:"card"},h("h2",null,"02｜已生產數量紀錄"),
-      h("label",null,"日期"),
-      h("div",{className:"row"},h("input",{type:"text",inputMode:"none","data-wheel":"1",value:rd,placeholder:"例如：11/18",style:{flex:1,minHeight:64,fontSize:24},onChange:e=>setRd(e.target.value)}),h("button",{className:"add",onClick:add},"新增")),
-      h("label",null,"生產數量"),
-      h("div",{className:"row"},h("div",{className:"disp"},cur===""?"0":cur),h("button",{className:"add",onClick:add},"新增")),
+      h("div",{className:"row"},
+        h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"日期"),h("input",{type:"text",inputMode:"none","data-wheel":"1",value:rd,placeholder:"例如：11/18",style:{width:"100%",minHeight:64,fontSize:24},onChange:e=>setRd(e.target.value)})),
+        h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"生產數量"),h("div",{className:"disp"},cur===""?"0":cur))),
+      h("button",{className:"add wide",style:{marginTop:10},onClick:add},"新增"),
       err&&h("div",{className:"err"},err),
       h("div",{className:"pad"},keys.map(k=>h("button",{key:k,onClick:()=>{
         if(k==="清空"){setCur("");setErr("")}else if(k==="刪除"){setCur(c=>c.slice(0,-1))}else pressKey(k)}},k))),
@@ -1603,22 +1610,23 @@ function calcDoc(){
   '.danger{background:var(--card)!important;color:var(--wn)!important;border-color:var(--wn)!important}.ok{color:var(--okc)!important}.err{color:var(--wn)!important}</style>';
 
   const wcss='<style>.wdk{position:fixed;left:0;right:0;bottom:0;z-index:99;background:var(--card);border-top:1px solid var(--line);padding:10px 12px 14px;box-shadow:0 -4px 16px rgba(0,0,0,.25);display:none}.wdk.on{display:block}.wdk .hd{display:flex;gap:8px;margin-bottom:8px}.wdk .hd button{flex:1;min-height:42px;font-size:16px;border-radius:10px;border:1px solid var(--line)}.wdk .hd .ok{background:var(--ac)!important;color:var(--at)!important;font-weight:700}.wdk .wh{position:relative;display:flex;gap:4px;height:200px}.wdk .wc{flex:1;height:200px;overflow-y:auto;scroll-snap-type:y mandatory;padding:80px 0;scrollbar-width:none;touch-action:pan-y;overscroll-behavior:contain}.wdk .wc::-webkit-scrollbar{display:none}.wdk .wi{height:40px;line-height:40px;text-align:center;scroll-snap-align:center;font-size:19px;color:var(--sub)}.wdk .wi.sel{color:var(--ac);font-weight:700;font-size:22px}.wdk .wband{position:absolute;left:0;right:0;top:80px;height:40px;border-top:1px solid var(--ac);border-bottom:1px solid var(--ac);pointer-events:none;opacity:.7}</style>';
-  const wjs='<script>(function(){var el,inp,v={m:1,d:1},cols={},lock=0,t={};function p2(n){return(n<10?"0":"")+n}'+
+  const wjs='<script>(function(){var el,inp,orig="",v={m:1,d:1},cols={},lock=0,t={};function ap(){if(!inp)return;var s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set;s.call(inp,p2(v.m)+"/"+p2(v.d));inp.dispatchEvent(new Event("input",{bubbles:true}))}function p2(n){return(n<10?"0":"")+n}'+
   'function dim(m){return new Date(new Date().getFullYear(),m,0).getDate()}'+
   'function fill(k){var c=cols[k],n=k==="m"?12:dim(v.m),h="";for(var i=1;i<=n;i++)h+=\'<div class="wi" data-v="\'+i+\'">\'+p2(i)+(k==="m"?" 月":" 日")+"</div>";c.innerHTML=h}'+
   'function mark(k){var c=cols[k],a=c.children;for(var i=0;i<a.length;i++)a[i].className="wi"+(i+1===v[k]?" sel":"")}'+
   'function go(k){lock=Date.now();cols[k].scrollTop=(v[k]-1)*40;mark(k)}'+
-  'function settle(k){var c=cols[k],n=c.children.length,i=Math.max(0,Math.min(n-1,Math.round(c.scrollTop/40)));if(Date.now()-lock<200)return;v[k]=i+1;if(k==="m"){var mx=dim(v.m);if(v.d>mx)v.d=mx;fill("d");go("d")}mark(k)}'+
-  'function mk(){el=document.createElement("div");el.className="wdk";el.innerHTML=\'<div class="hd"><button data-k="x">取消</button><button data-k="t">今天</button><button data-k="o" class="ok">完成</button></div><div class="wh"><div class="wc" data-c="m"></div><div class="wc" data-c="d"></div><div class="wband"></div></div>\';document.body.appendChild(el);'+
+  'function settle(k){var c=cols[k],n=c.children.length,i=Math.max(0,Math.min(n-1,Math.round(c.scrollTop/40)));if(Date.now()-lock<200)return;v[k]=i+1;if(k==="m"){var mx=dim(v.m);if(v.d>mx)v.d=mx;fill("d");go("d")}mark(k);ap()}'+
+  'function mk(){el=document.createElement("div");el.className="wdk";el.innerHTML=\'<div class="hd"><button data-k="x">取消</button><button data-k="t">今天</button></div><div class="wh"><div class="wc" data-c="m"></div><div class="wc" data-c="d"></div><div class="wband"></div></div>\';document.body.appendChild(el);'+
   'cols.m=el.querySelector("[data-c=m]");cols.d=el.querySelector("[data-c=d]");'+
-  '["m","d"].forEach(function(k){cols[k].addEventListener("scroll",function(){clearTimeout(t[k]);t[k]=setTimeout(function(){settle(k)},90)});cols[k].addEventListener("click",function(e){var x=e.target.closest(".wi");if(!x)return;v[k]=+x.dataset.v;if(k==="m"){var mx=dim(v.m);if(v.d>mx)v.d=mx;fill("d");go("d")}go(k)})});'+
+  '["m","d"].forEach(function(k){cols[k].addEventListener("scroll",function(){clearTimeout(t[k]);t[k]=setTimeout(function(){settle(k)},90)});cols[k].addEventListener("click",function(e){var x=e.target.closest(".wi");if(!x)return;v[k]=+x.dataset.v;if(k==="m"){var mx=dim(v.m);if(v.d>mx)v.d=mx;fill("d");go("d")}go(k);ap()})});'+
   'el.addEventListener("mousedown",function(e){e.preventDefault()});'+
-  'el.querySelector(".hd").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;var k=b.dataset.k;if(k==="x")close();else if(k==="t"){var n=new Date();v.m=n.getMonth()+1;v.d=n.getDate();fill("m");fill("d");go("m");go("d")}else{var s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set;s.call(inp,p2(v.m)+"/"+p2(v.d));inp.dispatchEvent(new Event("input",{bubbles:true}));close()}})}'+
-  'function open(i){if(!el)mk();inp=i;var n=new Date(),m=/^(\\d{1,2})\\/(\\d{1,2})$/.exec(i.value.trim());v.m=m?Math.min(12,Math.max(1,+m[1])):n.getMonth()+1;v.d=m?+m[2]:n.getDate();var mx=dim(v.m);if(v.d>mx)v.d=mx;if(v.d<1)v.d=1;el.classList.add("on");document.body.style.paddingBottom="330px";fill("m");fill("d");requestAnimationFrame(function(){go("m");go("d");try{i.scrollIntoView({block:"center"})}catch(e){}})}'+
+  'el.querySelector(".hd").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;var k=b.dataset.k;if(k==="x"){if(inp){var s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set;s.call(inp,orig);inp.dispatchEvent(new Event("input",{bubbles:true}))}close()}else if(k==="t"){var n=new Date();v.m=n.getMonth()+1;v.d=n.getDate();fill("m");fill("d");go("m");go("d");ap()}})}'+
+  'function open(i){if(!el)mk();inp=i;orig=i.value;var n=new Date(),m=/^(\\d{1,2})\\/(\\d{1,2})$/.exec(i.value.trim());v.m=m?Math.min(12,Math.max(1,+m[1])):n.getMonth()+1;v.d=m?+m[2]:n.getDate();var mx=dim(v.m);if(v.d>mx)v.d=mx;if(v.d<1)v.d=1;el.classList.add("on");document.body.style.paddingBottom="330px";fill("m");fill("d");requestAnimationFrame(function(){go("m");go("d");try{i.scrollIntoView({block:"center"})}catch(e){}})}'+
   'function close(){if(el)el.classList.remove("on");document.body.style.paddingBottom="";if(inp)inp.blur();inp=null}'+
   'function coarse(){return matchMedia("(pointer:coarse)").matches||"ontouchstart" in window}'+
   'document.addEventListener("focusin",function(e){var t=e.target;if(t&&t.dataset&&t.dataset.wheel&&coarse())open(t);else if(el&&!el.contains(t))close()});'+
   'document.addEventListener("click",function(e){var t=e.target;if(t&&t.dataset&&t.dataset.wheel&&coarse()&&(!el||!el.classList.contains("on")))open(t)});'+
+  'document.addEventListener("touchstart",function(e){var t=e.target;if(el&&el.classList.contains("on")&&!el.contains(t)&&!(t.dataset&&t.dataset.wheel))close()},true);'+
   'document.addEventListener("focusout",function(e){if(el&&el.classList.contains("on")&&!el.contains(e.relatedTarget)&&e.relatedTarget&&!(e.relatedTarget.dataset&&e.relatedTarget.dataset.wheel))close()});'+
   '})()<\/script>';
   return $('calcSrc').textContent.replace(/<\\\/script/g,'</script').replace('</head>',css+wcss+'</head>').replace('</body>',wjs+'</body>');
@@ -1700,8 +1708,20 @@ const Link={
     if(ch)this.put(all);
     if(pch)save();else if(ch)persist();
   },
+  applyNext(){
+    let N=null;try{N=JSON.parse(localStorage.getItem('prodNext')||'null')}catch(e){}
+    if(!N)return false;
+    try{localStorage.removeItem('prodNext')}catch(e){}
+    const m=st.mach[N.m];if(!m)return false;
+    const x=scheduledFor(N.m).find(y=>y.key===N.key);
+    m.runs=[];m.mades=[];m.fin='';m.draft=draftB();
+    if(x){m.src=x.key;m.no=x.o.no;m.coilNo=x.c.no||'';m.len=x.c.l;m.shr=x.o.shr;
+      m.yarns=x.o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));if(!m.yarns.length)m.yarns=[yarnB()]}
+    else m.coilNo=N.no||m.coilNo;
+    return true;
+  },
   importAll(){
-    const all=this.all();let ch=false;
+    const all=this.all();let ch=this.applyNext();
     IDS.forEach(id=>{if(this.importOne(id,all))ch=true});
     if(ch)save();
     return ch;
@@ -1765,9 +1785,9 @@ const Dkp={el:null,inp:null,dt:false,v:null,cols:[],
     if(this.md){const q=/^(\d{1,2})\/(\d{1,2})$/.exec(val);if(q){m=Math.min(12,Math.max(1,+q[1]));d=Math.max(1,+q[2])}}
     else if(val){const iso=this.dt?parseDT(val):parseDate(val);
       if(iso){const a=iso.split('T'),q=a[0].split('-');y=+q[0];m=+q[1];d=+q[2];if(a[1]){H=+a[1].slice(0,2);M=+a[1].slice(3,5)}}}
-    this.v={y,m,d,H,M};
+    this.v={y,m,d,H,M};this.orig=inp.value;
     const keys=this.md?['m','d']:this.dt?['y','m','d','H','M']:['y','m','d'];
-    this.el.innerHTML='<div class="hd"><button type="button" data-k="X">取消</button><button type="button" data-k="T">今天</button>'+(this.dt?'<button type="button" data-k="D">只存日期</button>':'')+'<button type="button" class="ok" data-k="OK">完成</button></div>'+
+    this.el.innerHTML='<div class="hd"><button type="button" data-k="X">取消</button><button type="button" data-k="T">今天</button>'+(this.dt?'<button type="button" data-k="D">只存日期</button>':'')+(this.dt?'<button type="button" class="ok" data-k="OK">完成</button>':'')+'</div>'+
       '<div class="wh">'+keys.map(k=>'<div class="wc" data-c="'+k+'"></div>').join('')+'<div class="wband"></div></div>';
     this.el.classList.add('on');document.body.style.paddingBottom='330px';
     const md=inp.closest('.modal');if(md){md.classList.add('pk');this.mdl=md}
@@ -1789,6 +1809,12 @@ const Dkp={el:null,inp:null,dt:false,v:null,cols:[],
       const max=new Date(this.v.y,this.v.m,0).getDate();if(this.v.d>max)this.v.d=max;
       if(dc)this.fill(dc,'d');
     }
+    this.live();
+  },
+  live(){
+    const i=this.inp;if(!i||this.dt)return;
+    const v=this.v;i.value=this.md?p2(v.m)+'/'+p2(v.d):v.y+'/'+p2(v.m)+'/'+p2(v.d);
+    i.dispatchEvent(new Event('input',{bubbles:true}));
   },
   goto(){this.cols.forEach(c=>{const L=this.items(c.dataset.k);const idx=Math.max(0,L.findIndex(x=>x[0]===this.v[c.dataset.k]));if(c.dataset.k==='d')this.fill(c,'d');else{c.scrollTo({top:idx*40,behavior:'smooth'});this.mark(c,idx)}})},
   close(){
@@ -1798,8 +1824,8 @@ const Dkp={el:null,inp:null,dt:false,v:null,cols:[],
   },
   act(k){
     const i=this.inp;if(!i)return;
-    if(k==='X'){this.close();i.blur();return}
-    if(k==='T'){const n=new Date();Object.assign(this.v,{y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate()});this.goto();return}
+    if(k==='X'){if(!this.dt){i.value=this.orig;i.dispatchEvent(new Event('input',{bubbles:true}))}this.close();i.blur();return}
+    if(k==='T'){const n=new Date();Object.assign(this.v,{y:n.getFullYear(),m:n.getMonth()+1,d:n.getDate()});this.goto();this.live();return}
     ['y','m','d','H','M'].forEach(()=>0);
     this.cols.forEach(c=>{clearTimeout(c._t);this.settle(c)});     // 還在滑動時按完成，也取目前停住的位置
     const v=this.v;
@@ -1814,6 +1840,9 @@ document.addEventListener('focusin',e=>{
   if(t.tagName==='INPUT'&&t.dataset&&(t.dataset.date||t.dataset.md)&&Dkp.coarse())Dkp.open(t);
   else if(Dkp.inp&&!(Dkp.el&&Dkp.el.contains(t)))Dkp.close();
 });
+document.addEventListener('touchstart',e=>{
+  const t=e.target;if(Dkp.inp&&!Dkp.dt&&Dkp.el&&!Dkp.el.contains(t)&&!(t.dataset&&(t.dataset.date||t.dataset.md))){const i=Dkp.inp;Dkp.close();i.blur()}
+},true);
 document.addEventListener('focusout',e=>{
   if(!Dkp.inp||e.target!==Dkp.inp)return;
   setTimeout(()=>{const a=document.activeElement;if(!(a&&a.dataset&&(a.dataset.date||a.dataset.md))&&!(Dkp.el&&Dkp.el.contains(a)))Dkp.close()},0);
