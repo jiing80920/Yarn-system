@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-title" content="用紗量管理">
 
 <style>
-:root{box-sizing:border-box;--bg:#f6f4ef;--card:#fff;--text:#222;--mute:#6b6b6b;--line:#ddd8cc;--accent:#2f5d62;--accent-t:#fff;--warn:#b3261e;--res:#eaf1f1;--abg:#fff3cd;--abd:#e0a100;--atx:#7a5200;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a1a;--card:#222727;--text:#eee;--mute:#a0a8a8;--line:#394040;--accent:#7fb5ba;--accent-t:#102022;--warn:#ff8a80;--res:#1c3033;--abg:#3a3015;--abd:#c99a1c;--atx:#ffd98a;color-scheme:dark}}
+:root{box-sizing:border-box;--bg:#f6f4ef;--card:#fff;--text:#222;--mute:#6b6b6b;--line:#ddd8cc;--accent:#2f5d62;--accent-t:#fff;--warn:#b3261e;--ok:#2e7d32;--res:#eaf1f1;--abg:#fff3cd;--abd:#e0a100;--atx:#7a5200;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171a1a;--card:#222727;--text:#eee;--mute:#a0a8a8;--line:#394040;--accent:#7fb5ba;--accent-t:#102022;--warn:#ff8a80;--ok:#81c784;--res:#1c3033;--abg:#3a3015;--abd:#c99a1c;--atx:#ffd98a;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.5}
 .top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
@@ -26,6 +26,7 @@ main{max-width:1240px;margin:0 auto;padding:18px 24px 48px}
 .syncb.warnb{color:var(--atx)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
 .modal.hide{display:none}
+.modal.pk{align-items:flex-start;overflow:auto;padding-bottom:340px}
 .mbox{background:var(--card);border-radius:14px;padding:18px;max-width:480px;width:100%;max-height:92vh;overflow:auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
 .card-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap}
@@ -57,6 +58,7 @@ tr.gh td{background:var(--res);font-weight:700}
 button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);padding:7px 14px}
 button.p{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
 button.x{color:var(--warn);padding:8px 0;height:38px}
+.card-h .hb button{flex:1 1 0;min-width:84px;height:44px;padding:0 10px;white-space:nowrap}
 .alert{background:var(--abg);border:1px solid var(--abd);color:var(--atx);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:700}
 .alert .ln{color:inherit;font-weight:600;font-size:.86rem;margin-top:2px}
 button.warnb{background:var(--abg);border-color:var(--abd);color:var(--atx);font-weight:700}
@@ -66,7 +68,7 @@ input.bad{border-color:var(--warn);outline:2px solid var(--warn)}
 .rw.mrow{grid-template-columns:1.2fr 1.2fr 90px 90px}
 .rw.crow{grid-template-columns:1fr 1fr 1fr 1fr 84px 84px}
 .rw.crow button{height:38px;margin-top:2px}
-.dkp{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
+.dkp{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.22);display:none}
 .dkp.on{display:block}
 .dkp .hd{display:flex;gap:8px;margin-bottom:8px}
 .dkp .hd button{flex:1;min-height:42px;font-size:1rem}
@@ -111,6 +113,12 @@ td small,.ln{display:block;color:var(--mute);font-size:.74rem;line-height:1.45}
 tfoot td,tr.ft td{font-weight:700;background:var(--res);border-bottom:none}
 tr.cur td{background:var(--res)}
 .neg{color:var(--warn)}
+.pos{color:var(--ok)}
+input.ce{width:100%;min-width:64px;padding:5px 6px;font-size:inherit;border-radius:6px}
+input.ce.num{text-align:right}
+button.sm{white-space:nowrap}
+#oBody td:nth-child(5),#oBody th:nth-child(5){padding-left:22px!important}
+button.lk{white-space:nowrap;background:none;border:0;padding:4px 0;min-height:0;color:var(--accent);font-weight:700;font-size:inherit;text-decoration:underline;text-align:left;cursor:pointer}
 .empty{color:var(--mute);text-align:center;padding:16px 0}
 .cmpi{font-size:.85rem;margin-bottom:8px;line-height:1.7}
 .cmpi b{color:var(--accent)}
@@ -144,6 +152,13 @@ html{-webkit-text-size-adjust:100%}
   .rw{grid-template-columns:1fr 1fr!important;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg)}
   .rw input,.rw select{background:var(--card)}
   .rw>button.x{grid-column:1/-1;height:40px}
+  .rw.k6>button.x{grid-column:auto;height:48px;margin-top:0}
+  .rw.k6>label:nth-child(5){display:flex;align-items:center;justify-content:center;gap:12px;margin:0;border:1px solid var(--line);border-radius:10px;height:48px;align-self:end}
+  .rw.k6>label:nth-child(5) input[type=checkbox]{margin:0}
+  .rw.t6>label:nth-child(3){grid-column:1/-1}
+  .rw.crow>label:nth-child(3){grid-column:1/-1}
+  .eq.estrow>label:nth-child(5){grid-column:1/-1;text-align:center}
+  .eq.estrow>label:nth-child(5) .val{text-align:center}
   .rw.drow button,.rw.mrow button,.rw.crow button{height:44px;margin-top:0}
   .mk{display:block}
   .rw.mrow{grid-template-columns:1fr!important}
@@ -158,7 +173,17 @@ html{-webkit-text-size-adjust:100%}
   td,th{padding:7px 6px}
   th{white-space:nowrap}
   #cmpCur table,#oBody table,[data-o="plist"] table,[data-o="mlist"] table,[data-o="mused"] table{min-width:480px}
-  #oBody table{min-width:760px}
+  #oBody table{min-width:520px!important}
+  [data-o="mused"] table,#panel table.fit,#panel .card>div>table.fit{min-width:0!important;font-size:.7rem;width:100%}
+  [data-o="mused"] th,[data-o="mused"] td,table.fit th,table.fit td{padding:5px 3px!important}
+  table.fit th{white-space:nowrap!important;font-size:.68rem}
+  table.fit th,table.fit td{padding:5px 4px!important}
+  table.fit td{font-size:.68rem}
+
+  table.fit td{white-space:nowrap!important}
+  table.fit td:first-child{white-space:nowrap!important;min-width:0}
+  #oBody th,#oBody td{padding:6px 6px;white-space:nowrap}
+  #oBody button{white-space:nowrap}
   #sumArea .card>div>table{min-width:680px}
   #panel .card>div>table{min-width:820px}
   td:first-child{min-width:64px}
@@ -169,16 +194,13 @@ html{-webkit-text-size-adjust:100%}
 }
 @media print{.top,.acts{display:none}.pg{display:none!important}#pg2{display:block!important}body{background:#fff}}
 </style>
-<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
-<link rel="manifest" href="manifest.json?v=2">
 </head>
 <body>
 <div class="top">
 <div class="brand"><h1>用紗量管理</h1><button id="syncBtn" class="syncb" type="button">☁ 未連線</button></div>
 <div class="tabs">
 <button class="on" data-tab="0" type="button">託工設定</button>
-<button data-tab="1" type="button">機台設定</button>
+<button data-tab="1" type="button">領紗紀錄</button>
 <button data-tab="2" type="button">生產計算</button>
 <button data-tab="3" type="button">統整表格</button>
 </div>
@@ -188,7 +210,7 @@ html{-webkit-text-size-adjust:100%}
 <main>
 <div class="pg" id="pg0">
 <div id="subList"></div>
-<div class="card"><div class="card-h"><b>02｜託工單匯整</b><input id="oq" placeholder="搜尋布號" style="max-width:200px;margin:0"></div><div style="overflow-x:auto" id="oBody"></div></div>
+<div class="card"><div class="card-h" id="ordHd" style="cursor:pointer"><b>02｜託工單匯整 <span id="ordArr">▼</span></b><input id="oq" placeholder="搜尋布號" style="max-width:200px;margin:0;display:none"></div><div id="oWrap" style="display:none"><div style="overflow-x:auto" id="oBody"></div></div></div>
 </div>
 <div class="pg hide" id="pg1"><div class="chips" id="chips"></div><div id="panel"></div></div>
 <div class="pg hide" id="pgCalc"><iframe id="calcFrame" title="生產完工計算機"></iframe></div>
@@ -650,7 +672,7 @@ function App(){
       h("div",{className:"res"},h("span",null,"剩餘運轉時間"),h("b",null,hrs===null?"–":fmtN(hrs)+" 小時")),
       h("div",{className:"res"},h("span",null,"預計完工日期時間"),h("b",null,fin?"已完工　"+fmtFull(new Date(fin)).slice(0,16):finish)),
       h("button",{className:"wide",style:fin?{}:{fontWeight:700},onClick:toggleFin},fin?"取消完工":"完工"),
-      h("button",{className:"wide",onClick:()=>{try{window.parent.openSw(mid)}catch(e){setErr("請到主頁面「機台設定」使用換布號")}}},"換布號（同一盤頭）")),
+      h("button",{className:"wide",onClick:()=>{try{window.parent.openSw(mid)}catch(e){setErr("請到主頁面「領紗紀錄」使用換布號")}}},"換布號（同一盤頭）")),
     h("div",{className:"card"},
       h("button",{className:"tog",onClick:()=>setNtOpen(o=>!o)},h("span",null,"04｜備註"),h("span",null,ntOpen?"▲":"▼")),
       ntOpen&&h("div",{style:{marginTop:8}},
@@ -954,7 +976,7 @@ function doSwitch(id,o){
   m.draft=draftB();
   try{const X=JSON.parse(localStorage.getItem('prodExtra')||'{}')||{};X[id]=Object.assign({},X[id],{fin:''});localStorage.setItem('prodExtra',JSON.stringify(X))}catch(e){}
 }
-let recOpen=false;const fold={s2:false,pull:false,mused:false,stock:false,runs:false};
+let recOpen=false;const fold={cmp:false,s2:false,pull:false,mused:false,stock:false,runs:false};
 function madeList(list,id){
   const done=sum(list.map(x=>num(x.q)||0));
   let h='<div class="sgrid"><div class="sbox"><span>累計已生產數量 (碼)</span><b>'+fmt(done)+'</b></div><div class="sbox"><span>生產記錄筆數</span><b>'+list.length+'</b></div></div>';
@@ -1068,7 +1090,7 @@ function orderStatus(){
 let coilOpen=false;
 function subHTML(s){
   const a=A('sub',0),cd=s.cdraft||(s.cdraft=coilDraftB()),ac=A('sub',0,'cdraft',0);
-  return '<div class="card" data-ci="0"><div class="card-h"><b>01｜託工單</b><span class="hb"><span class="stat" id="stat"></span><button class="p" type="button" data-act="saveOrder" data-role="saveBtn">儲存</button><button type="button" data-act="newOrder">新增新單</button></span></div>'+
+  return '<div class="card" data-ci="0"><div class="card-h"><b>01｜託工單<span id="subNo">'+((s.no||'').trim()?'　'+esc(s.no.trim()):'')+'</span></b><span class="hb"><span class="stat" id="stat"></span><button class="p" type="button" data-act="saveOrder" data-role="saveBtn">儲存</button><button type="button" data-act="newOrder">新增</button><button type="button" class="x" data-act="delOrder" data-role="delBtn" disabled>刪除</button></span></div>'+
     '<div class="eq">'+inp(a,'no','布號',s.no,{w:1,up:1})+inp(a,'qty','託工數量 (碼)',s.qty,{n:1})+'</div>'+
     '<div class="sh">A｜入庫盤頭</div>'+
     '<div class="rw crow">'+inp(ac,'d','日期',cd.d,{date:1,dq:1})+inp(ac,'no','盤頭號',cd.no,{up:1})+inp(ac,'l','盤頭長度 (碼)',cd.l,{n:1})+
@@ -1081,7 +1103,8 @@ function subHTML(s){
     s.yarns.map((y,j)=>{const b=A('sub',0,'yarns',j);
       return '<div class="rw t6">'+inp(b,'n','品代',y.n,{list:'dlName',up:1})+inp(b,'b','批號',y.b,{list:'dlBatch',up:1})+inp(b,'wy','每碼用紗量 (kg)',y.wy,{n:1})+out('託工用紗量 (kg)','yn'+j)+out('預估用紗量 (kg)','ye'+j)+xbtn('rmSY','data-j="'+j+'"')+'</div>'}).join('')+
     '<button class="add" type="button" data-act="addSY">＋ 新增紗種</button>'+
-    '<div class="sh">C｜機台比對</div><div id="cmpCur"></div></div>';
+    '<button class="add" type="button" data-act="tg" data-k="cmp" style="margin:14px 0 6px;text-align:left;font-weight:700">'+(fold.cmp?'▲':'▼')+' C｜機台比對</button>'+
+    '<div style="display:'+(fold.cmp?'block':'none')+'"><div id="cmpCur"></div></div></div>';
 }
 const tsFmt=t=>{if(!t)return '';const d=new Date(t);return String(d.getFullYear()).slice(2)+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())};
 function renderOrders(){
@@ -1166,8 +1189,8 @@ function panelHTML(id){
   const selN=(ad,v)=>'<label>品代<select '+ad+' data-f="n" data-dep="1"><option value="">— 選擇 —</option>'+optsOf(nList,v)+'</select></label>';
   const selB=(ad,n,v)=>'<label>批號<select '+ad+' data-f="b"><option value="">— 選擇 —</option>'+optsOf(machBatches(m,n),v)+'</select></label>';
   const nb=(ad,r)=>useSel?selN(ad,r.n)+selB(ad,r.n,r.b):inp(ad,'n','品代',r.n,{list:'dlName',up:1})+inp(ad,'b','批號',r.b,{list:'dlBatch',up:1});
-  if(useSel&&!m.pdraft.n&&!m.pdraft.b){m.pdraft.n=pairs[0].n;m.pdraft.b=pairs[0].b}      // 自動帶入第一大區設定的紗種
-  if(useSel&&!m.sdraft.n&&!m.sdraft.b){m.sdraft.n=pairs[0].n;m.sdraft.b=pairs[0].b}
+  const fillD=d=>{if(!useSel)return;const ok=pairs.some(p=>kk(p.n,p.b)===kk((d.n||'').trim(),(d.b||'').trim()));if(!ok){d.n=pairs[0].n;d.b=pairs[0].b}};      // 自動帶入設定的紗種（設定變動時一併更新）
+  fillD(m.pdraft);fillD(m.sdraft);
   const srcSel=sc.length?'<label class="w">排定託工單<select id="srcSel"><option value="">— 手動輸入 —</option>'+sc.map(x=>'<option value="'+esc(x.key)+'"'+(m.src===x.key?' selected':'')+'>'+esc(x.text)+'</option>').join('')+'</select></label>':'';
   const ys=m.yarns.map((y,j)=>{const b=A('mach',id,'yarns',j);
     return '<div class="rw y">'+inp(b,'n','品代',y.n,{list:'dlName',up:1})+inp(b,'b','批號',y.b,{list:'dlBatch',up:1})+inp(b,'wy','每碼用紗量 (kg)',y.wy,{n:1})+out('用紗量 (kg)','yn'+j)+xbtn('rmYarn','data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
@@ -1180,12 +1203,10 @@ function panelHTML(id){
     '<div class="sh" style="margin-top:0;border-top:0;padding-top:0">01｜生產設定</div>'+
     '<div class="eq">'+srcSel+inp(a,'no','布號',m.no,{w:1,up:1})+inp(a,'coilNo','盤頭號',m.coilNo,{up:1})+'</div>'+
     '<div class="eq">'+inp(a,'len','盤頭長 (碼)',m.len,{n:1})+'<span class="op">×</span>'+inp(a,'shr','織縮 (%)',m.shr,{n:1})+'<span class="op">=</span>'+out('成品數量 (碼)','qty')+'</div>'+
-    '<div class="sh2">A｜用紗計算</div>'+ys+'<button class="add" type="button" data-act="addYarn" data-id="'+id+'">＋ 新增用紗</button>'+
-    '<button class="add" type="button" data-act="tg" data-k="s2" style="margin:10px 0 6px;text-align:left;font-weight:700">'+(fold.s2?'▲':'▼')+' 02｜開機與預估完工</button>'+
-    '<div style="display:'+(fold.s2?'block':'none')+'">'+
+    '<div class="sh">02｜開機與預估完工</div><div>'+
     '<div class="eq">'+inp(a,'start','開機時間',m.start,{dt:1})+inp(a,'rpm','轉速',m.rpm,{n:1})+inp(a,'pit','緯密 (T)',m.pit,{n:1})+'</div>'+
     '<div class="eq">'+out('日產量 (碼/天)','daily')+out('所需天數','days')+'<label class="w">預估完工時間<div class="val"><span data-o="fin">—</span></div></label></div></div>'+
-    '<div class="sh">03｜已用紗量</div>'+
+    '<div class="sh">03｜緯紗用量</div>'+
     '<button class="add" type="button" data-act="tg" data-k="pull" style="margin:6px 0;text-align:left">'+(fold.pull?'▲':'▼')+' A｜領紗記錄</button>'+
     '<div style="display:'+(fold.pull?'block':'none')+'">'+drow(Ap,m.pdraft,'領用數量 (kg)','addPull','clrPull')+
     '<div class="sh2">累計領用 (kg)</div><div data-o="plist"></div></div>'+
@@ -1199,7 +1220,7 @@ function panelHTML(id){
     '<button class="add" type="button" data-act="tg" data-k="stock" style="margin:6px 0;text-align:left">'+(fold.stock?'▲':'▼')+' D｜廠內庫存記錄</button>'+
     '<div style="display:'+(fold.stock?'block':'none')+'">'+drow(As,m.sdraft,'庫存量 (kg)','addStock','clrStock')+
     '<div class="sh2">累計庫存 (kg)</div><div data-o="slist"></div></div>'+
-    '<div class="sh2">E｜總計</div><div style="overflow-x:auto">'+
+    '<div class="sh">04｜整合</div><div style="overflow-x:auto">'+
     '<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">差異</th><th class="n">實際<br>用量</th><th class="n">比例</th></tr></thead><tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div></div>';
 }
 function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);update()}
@@ -1216,10 +1237,12 @@ function update(){
     const c=ocalc(st.cur),set=(o,v)=>{const e=root.querySelector('[data-o="'+o+'"]');if(e)e.textContent=fmt(v)};
     set('ct',c.ct>0?c.ct:null);set('est',c.est);
     c.ys.forEach((x,j)=>{set('yn'+j,x.need);set('ye'+j,x.estNeed)});
+    const sn=$('subNo');if(sn)sn.textContent=(st.cur.no||'').trim()?'　'+st.cur.no.trim():'';
     const ce=$('cmpCur');if(ce)ce.innerHTML=cmpHTML(st.cur);
     const sEl=$('stat');if(sEl){const os=orderStatus();sEl.textContent=os[0];sEl.className='stat'+(os[1]?' un':'')}
     const saved=st.orders.some(o=>o.id&&o.id===st.cur.id),dirty=orderStatus()[1];
     document.querySelectorAll('[data-role="saveBtn"]').forEach(b=>{b.textContent=saved?'更新存檔':'儲存';b.disabled=saved&&!dirty});
+    document.querySelectorAll('[data-role="delBtn"]').forEach(b=>{b.disabled=!saved;b.dataset.id=saved?st.cur.id:''});
   }
   st.cur.yarns.forEach(addDL);
 
@@ -1512,7 +1535,7 @@ document.addEventListener('click',e=>{
       try{const X=JSON.parse(localStorage.getItem('prodExtra')||'{}')||{};X[id]=Object.assign({},X[id],{fin:''});localStorage.setItem('prodExtra',JSON.stringify(X))}catch(e){}
       save();renderMach();if(curTab===2)Link.openCalc();toast('已復原為 '+(M.no||'上一個布號'));return}
     case 'toggleRecs':recOpen=!recOpen;renderMach();return;
-    case 'tg':fold[d.k]=!fold[d.k];renderMach();return;
+    case 'tg':fold[d.k]=!fold[d.k];if(d.k==='cmp')renderSub();else renderMach();return;
     case 'toggleCoils':coilOpen=!coilOpen;renderSub();return;
     case 'addCoil':addCoilRec();return;
     case 'clrCoil':st.cur.cdraft=coilDraftB();save();renderSub();return;
@@ -1861,6 +1884,7 @@ $('impFile').onchange=e=>{
   r.readAsText(f);
 };
 $('oq').addEventListener('input',renderOrders);
+$('ordHd').addEventListener('click',e=>{if(e.target.id==='oq')return;const w=$('oWrap'),open=w.style.display==='none';w.style.display=open?'block':'none';$('oq').style.display=open?'':'none';$('ordArr').textContent=open?'▲':'▼'});
 /* ---------- 雲端同步（GitHub 私人 repository；單人、多裝置）---------- */
 const SYNC_KEY='yarn-sync-v1';
 let sc=null;try{sc=JSON.parse(localStorage.getItem(SYNC_KEY)||'null')}catch(e){}
