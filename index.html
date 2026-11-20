@@ -2035,8 +2035,8 @@ document.addEventListener('focusout',e=>{
 const Kpd={el:null,inp:null,ex:'',fresh:true,
   build(){
     const e=document.createElement('div');e.className='dkp';e.id='kpd';
-    const K=['7','8','9','÷','4','5','6','×','1','2','3','−','0','.','⌫','+'];
-    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kgrid">'+K.map(k=>'<button type="button" data-k="'+k+'"'+('÷×−+'.includes(k)?' class="kop"':'')+'>'+k+'</button>').join('')+'</div><div class="hd" style="margin-top:8px"><button type="button" data-k="X">取消</button><button type="button" data-k="C">清空</button><button type="button" class="ok" data-k="OK">完成</button></div>';
+    const OP=['÷','×','−','+'],K=['7','8','9','4','5','6','1','2','3','0','.','⌫'];
+    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kgrid" style="grid-template-columns:repeat(4,1fr);margin-bottom:8px">'+OP.map(k=>'<button type="button" class="kop" data-k="'+k+'">'+k+'</button>').join('')+'</div><div class="kgrid" style="grid-template-columns:repeat(3,1fr)">'+K.map(k=>'<button type="button" data-k="'+k+'">'+k+'</button>').join('')+'</div><div class="hd" style="margin-top:8px"><button type="button" data-k="X">取消</button><button type="button" data-k="C">清空</button><button type="button" class="ok" data-k="OK">完成</button></div>';
     e.addEventListener('mousedown',ev=>ev.preventDefault());
     e.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b)this.press(b.dataset.k)});
     document.body.appendChild(e);this.el=e;
