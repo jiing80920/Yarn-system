@@ -1181,12 +1181,19 @@ window.alert=m=>toast(String(m));
 let cnFn=null,cnNoFn=null;
 function ask(msg,fn,fnNo,okT,noT){cnFn=fn;cnNoFn=fnNo||null;$('cnMsg').textContent=msg;$('cnOk').textContent=okT||'確定';$('cnNo').textContent=noT||'取消';$('cnModal').classList.remove('hide')}
 /* 新布號上機：與上一組比對紗種（先品代、再批號） */
+/* 依布號找託工單的紗種（完工單的紗種以它自己的布號為準，不用機台當下的設定） */
+function orderYarns(fab){
+  const k=norm(fab||'');if(!k)return null;
+  const mp=new Map();
+  st.orders.filter(o=>norm(o.no||'')===k).forEach(o=>(o.yarns||[]).forEach(y=>{if(!(y.n||'').trim()&&!(y.b||'').trim())return;const kx=kk(y.n||'',y.b||'');if(!mp.has(kx))mp.set(kx,{n:y.n||'',b:y.b||'',wy:y.wy})}));
+  return mp.size?[...mp.values()]:null;
+}
 function archivePulls(mid,mk){
   const m=st.mach[mid];if(!m)return;
   const pl=m.pulls.map(p=>({d:p.d,n:p.n,b:p.b,q:p.q})),rn=(m.runs||[]).map(r=>({no:r.no,coil:r.coilNo,q:runMade(r),end:r.end})),
     rc=m.mades.map(x=>({d:x.d,q:x.q})),yn=effYarns(m).map(y=>({n:y.n,b:y.b,wy:y.wy}));
   try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');let hit=false;
-    for(let i=L.length-1;i>=0;i--){const x=L[i];if(x.type==='fin'&&!x.x&&x.m===mid){if(!x.pl){x.pl=pl;x.rn=rn;x.yn=yn;if(!x.rc||!x.rc.length)x.rc=rc.map(r=>({d:fmtD(r.d).slice(5),q:r.q}))}hit=true;break}}
+    for(let i=L.length-1;i>=0;i--){const x=L[i];if(x.type==='fin'&&!x.x&&x.m===mid){if(!x.pl){x.pl=pl;x.rn=rn;x.yn=orderYarns(x.fab)||yn;if(!x.rc||!x.rc.length)x.rc=rc.map(r=>({d:fmtD(r.d).slice(5),q:r.q}))}hit=true;break}}
     if(!hit&&mk&&(pl.length||rc.length||rn.length))L.push({u:'ar'+Date.now().toString(36),type:'fin',m:mid,no:m.coilNo||'',fab:m.no||'',len:m.len,qty:mcalc(m,true).made,total:mcalc(m,true).qty,at:Date.now(),fa:'man'+Date.now(),rc:rc.map(r=>({d:fmtD(r.d).slice(5),q:r.q})),pl,rn,yn});
     localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
 }
@@ -1246,11 +1253,12 @@ function finBlock(m,id){
   if(!E)return null;
   const made=(E.rc||[]).reduce((a,r)=>a+(num(r.q)||0),0)||num(E.qty)||0,total=num(E.total)||0;
   const mp=new Map(),get=(n,b)=>{const k=kk(n||'',b||'');let e=mp.get(k);if(!e){e={n:(n||'').trim(),b:(b||'').trim(),need:0,pull:0,used:0,stock:0,made:made};mp.set(k,e)}return e};
-  (E.yn||[]).forEach(y=>{const wy=num(y.wy),e=get(y.n,y.b);if(wy!==null){e.need+=total*wy;e.used+=made*wy}});
+  (orderYarns(E.fab)||E.yn||[]).forEach(y=>{const wy=num(y.wy),e=get(y.n,y.b);if(wy!==null){e.need+=total*wy;e.used+=made*wy}});
   (E.pl||[]).forEach(p=>{get(p.n,p.b).pull+=num(p.q)||0});
-  const rows=[...mp.values()];
+  const hid=new Set(E.xy||[]);
+  const all=[...mp.values()],rows=all.filter(e=>!hid.has(kk(e.n,e.b))),hidden=all.filter(e=>hid.has(kk(e.n,e.b)));
   rows.forEach(e=>{m.stocks.forEach(x=>{if(kk(x.n||'',x.b||'')===kk(e.n,e.b))e.stock+=num(x.q)||0})});
-  return {E,rows};
+  return {E,rows,hidden};
 }
 function panelHTML(id){
   const m=st.mach[id],a=A('mach',id),sc=scheduledFor(id);
@@ -1293,7 +1301,7 @@ function panelHTML(id){
     '<div class="sh2">目前庫存 (kg)</div><div data-o="slist"></div></div>'+
     '<div class="sh">04｜整合</div>'+
     '<div class="sh2" style="margin-top:6px">NOW　<span data-o="nowNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div>'+
-    '<div class="sh2" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:10px">FIN　<span data-o="finNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ftab"></tbody><tfoot data-o="ffoot"></tfoot></table></div></div>';
+    '<div class="sh2" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:10px">FIN　<span data-o="finNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ftab"></tbody><tfoot data-o="ffoot"></tfoot></table></div><div data-o="fman" style="margin-top:8px"></div></div>';
 }
 function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);update()}
 
@@ -1443,6 +1451,9 @@ function update(){
         const R=fb.rows.filter(x=>x.need||x.pull||x.used||x.stock),sf=f=>R.reduce((a,x)=>a+(x[f]||0),0);
         ft.innerHTML=R.length?R.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--mute)">（此筆為較早完工，未留存紗種明細）</td></tr>';
         ff.innerHTML=R.length?statRow('總計',{need:sf('need'),pull:sf('pull'),used:sf('used'),stock:sf('stock'),made:0}):'';
+        const fm=pn.querySelector('[data-o="fman"]');
+        if(fm)fm.innerHTML=(fb.rows.length?'<div class="note2" style="margin:0 0 4px">這張布沒用到的紗種，可點下面移除（只影響 FIN 這張表，不影響其他資料）：</div>'+fb.rows.map(x=>'<button class="sm" type="button" data-act="finHide" data-u="'+esc(fb.E.u)+'" data-k="'+encodeURIComponent(kk(x.n,x.b))+'" style="height:auto;padding:4px 10px;margin:2px 4px 2px 0">✕ '+esc(lab(x.n,x.b)||'（未填品代）')+'</button>').join(''):'')+
+          (fb.hidden.length?'<div style="margin-top:6px"><button class="sm" type="button" data-act="finShow" data-u="'+esc(fb.E.u)+'" style="height:auto;padding:4px 10px">還原已移除的紗種（'+fb.hidden.length+'）</button></div>':'');
       }
     }
   }
@@ -1685,6 +1696,11 @@ document.addEventListener('click',e=>{
       return}
     case 'cpMade':{const r=M.mades[j];if(r)M.mades.push({d:today(),n:'',b:'',q:r.q,t:Date.now()});break}
     case 'delFin':{const u=d.u;ask('確定要刪除這筆完工記錄嗎？',()=>{try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');L.forEach(x=>{if(x.u===u)x.x=1});localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}save();window._finForce=1;renderFin();window._finForce=0});return}
+    case 'finHide':case 'finShow':{
+      try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');
+        L.forEach(x=>{if(x.u!==d.u)return;if(d.act==='finShow')x.xy=[];else{x.xy=(x.xy||[]).concat([decodeURIComponent(d.k)])}});
+        localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
+      save();renderMach();return}
     case 'clrAllPull':ask('確定要清除這台機台全部的領紗記錄嗎？',()=>{M.pulls=[];save();renderMach()});return;
     case 'clrAllMade':ask('確定要清除這台機台全部的生產紀錄嗎？',()=>{M.mades=[];save();renderMach()});return;
     case 'addSY':st.cur.yarns.push(yarnB());save();renderSub();return;
