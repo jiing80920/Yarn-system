@@ -686,11 +686,11 @@ function App(){
           h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"機上緯密（T）"),numIn(nt.tw,v=>setNt(p=>Object.assign({},p,{tw:v})))),
           h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"張力（N）"),numIn(nt.ten,v=>setNt(p=>Object.assign({},p,{ten:v}))))),
         h("div",{className:"row"},
-          h("div",{style:{flex:1,minWidth:0}},h("label",null,"左絞邊"),txIn(nt.tl,v=>setNt(p=>Object.assign({},p,{tl:v})))),
-          h("div",{style:{flex:1,minWidth:0}},h("label",null,"右絞邊"),txIn(nt.tr,v=>setNt(p=>Object.assign({},p,{tr:v}))))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"左絞邊"),numIn(nt.tl,v=>setNt(p=>Object.assign({},p,{tl:v})))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"右絞邊"),numIn(nt.tr,v=>setNt(p=>Object.assign({},p,{tr:v}))))),
         h("div",{className:"row"},
-          h("div",{style:{flex:1,minWidth:0}},h("label",null,"平綜"),txIn(nt.ph,v=>setNt(p=>Object.assign({},p,{ph:v})))),
-          h("div",{style:{flex:1,minWidth:0}},h("label",null,"開口"),txIn(nt.op,v=>setNt(p=>Object.assign({},p,{op:v}))))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"平綜"),numIn(nt.ph,v=>setNt(p=>Object.assign({},p,{ph:v})))),
+          h("div",{style:{flex:1,minWidth:0}},h("label",null,"開口"),numIn(nt.op,v=>setNt(p=>Object.assign({},p,{op:v}))))),
         h("label",null,"捲取幅寬（公分／英吋，輸入其一自動換算）"),
         h("div",{className:"row"},
           h("div",{style:{flex:1}},h("label",{style:{marginTop:0}},"公分"),numIn(nt.cm,v=>setNt(p=>Object.assign({},p,{cm:v,inch:v===""?"":String(Math.round(parseFloat(v)/2.54*100)/100)})))),
@@ -877,7 +877,7 @@ function inp(a,f,label,v,o){
   const dv=o.date?fmtD(v):o.dt?fmtDT(v):esc(v);
   const lc=[o.w?'w':'',o.cls||''].filter(Boolean).join(' ');
   return '<label'+(lc?' class="'+lc+'"':'')+'>'+label+'<input '+a+' data-f="'+f+'"'+(o.n?' class="num" inputmode="'+(o.calc&&Dkp.coarse()?'none':'decimal')+'" data-num="1"'+(o.calc?' data-calc="1"':''):'')+
-    (o.up?' data-up="1"':'')+(o.date?' data-date="1" inputmode="none" placeholder="例 11/18 或 115/11/17"':'')+(o.dt?' data-date="2" inputmode="none" placeholder="例 11/18 08:00（只填日期不連動計算機）"':'')+
+    (o.up?' data-up="1"':'')+(o.date?' data-date="1" inputmode="none" placeholder="例 11/18 或 115/11/17"':'')+(o.dt?' data-date="2" inputmode="none" placeholder="例 11/18 08:00"':'')+
     (o.t?' type="'+o.t+'"':'')+(o.list?' list="'+o.list+'"':'')+' value="'+dv+'">'+(o.dq?'<span class="dq"><button type="button" data-act="dq" data-n="0">今天</button><button type="button" data-act="dq" data-n="1">昨天</button><button type="button" data-act="dq" data-n="2">前天</button></span>':'')+'</label>';
 }
 const out=(label,name,unit)=>'<label>'+label+'<div class="val"><span data-o="'+name+'">—</span>'+(unit?' '+unit:'')+'</div></label>';
