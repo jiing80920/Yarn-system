@@ -651,7 +651,7 @@ function App(){
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"日期"),h("input",{type:"text",inputMode:"none","data-wheel":"1",value:rd,placeholder:"例如：11/18",style:{width:"100%",minHeight:64,fontSize:24},onChange:e=>setRd(e.target.value)})),
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"生產數量"),h("div",{className:"disp"},cur===""?"0":cur))),
       h("button",{className:"add wide",style:{marginTop:10},onClick:add},"新增"),
-      preN>0&&h("div",{className:"note",style:{color:"var(--ac)",fontWeight:700}},(info||"盤頭已生產過 "+fmtN(preN)+" 碼（由第一大區連動），剩餘數量已扣除")),
+      preN>0&&h("div",{className:"note",style:{color:"var(--ac)",fontWeight:700}},(info||"盤頭已生產過 "+fmtN(preN)+" 碼，剩餘數量已扣除")),
       err&&h("div",{className:"err"},err),
       h("div",{className:"pad"},keys.map(k=>h("button",{key:k,onClick:()=>{
         if(k==="清空"){setCur("");setErr("")}else if(k==="刪除"){setCur(c=>c.slice(0,-1))}else pressKey(k)}},k))),
