@@ -1819,7 +1819,7 @@ const Link={
     const oldRecs=(old&&old.recs)||[],q=this.qtyOf(m);
     let next=Math.max(0,...oldRecs.map(r=>+r.id||0),...m.mades.map(x=>+x.cid||0))+1;
     const recs=m.mades.map(x=>{if(!x.cid)x.cid=next++;return {id:x.cid,qty:num(x.q)||0,time:new Date(this.tOf(x)).toISOString()}});
-    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:machPre(m)?String(machPre(m)):'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
+    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:machPre(m)?String(machPre(m)):'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(old&&old.startStr)||this.nowStr(),recs};
     if(old&&JSON.stringify(old)===JSON.stringify(o))return false;
     all[id]=o;return true;
   },
@@ -1833,7 +1833,7 @@ const Link={
       else if(!m.mades.some(y=>y.cid===r.id)){m.mades.push({d:this.isoD(t||Date.now()),n:'',b:'',q,t:t||Date.now(),cid:r.id});ch=true}
     });
     const fill=(k,v)=>{if(!m[k]&&v){m[k]=v;ch=true}};
-    fill('rpm',c.rpm);fill('pit',c.strips);fill('start',c.startStr);
+    fill('rpm',c.rpm);fill('pit',c.strips);
     if(!m.len){
       if(c.beam&&c.shrink!==''&&c.shrink!==undefined){m.len=c.beam;m.shr=c.shrink;ch=true}
       else if(c.total){m.len=c.total;m.shr='0';ch=true}
@@ -1861,7 +1861,6 @@ const Link={
     const set=(k,v)=>{if(m[k]!==v){m[k]=v;ch=true}};
     set('rpm',c.rpm||'');set('pit',c.strips||'');
     try{const X=(JSON.parse(localStorage.getItem('prodExtra')||'{}')||{})[id]||{};set('fin',X.fin||'')}catch(e){}
-    if(c.startStr&&(!m.start||String(m.start).includes('T')))set('start',c.startStr);   // 主頁面只填日期時，不被計算機覆蓋
     if(c.beam&&c.shrink!==''&&c.shrink!==undefined){set('len',String(c.beam));set('shr',String(c.shrink))}
     else if(c.total!==''&&c.total!==undefined){
       const q=this.qtyOf(m);
@@ -1929,6 +1928,11 @@ window.addEventListener('storage',e=>{
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&Link.tab3)Link.importAll()});
 window.addEventListener('pagehide',()=>{if(Link.tab3)Link.importAll()});
 /* ===== 日期滾輪（手機）：點日期欄跳出，上下滑動選年／月／日（開機時間另有時／分） ===== */
+function revealInp(el,h){   // 只在欄位被鍵盤擋住時，瞬間捲動一次（不用平滑捲動，避免畫面一直滑）
+  setTimeout(()=>{try{const r=el.getBoundingClientRect(),vh=window.innerHeight,lim=vh-h-12;
+    if(r.bottom>lim)window.scrollBy({top:r.bottom-lim,behavior:'instant'});
+    else if(r.top<8)window.scrollBy({top:r.top-60,behavior:'instant'})}catch(e){}},60);
+}
 const Dkp={el:null,inp:null,dt:false,v:null,cols:[],
   coarse(){try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}},
   build(){
@@ -1975,7 +1979,7 @@ const Dkp={el:null,inp:null,dt:false,v:null,cols:[],
       this.fill(c,c.dataset.c);
       c.addEventListener('scroll',()=>{clearTimeout(c._t);c._t=setTimeout(()=>this.settle(c),90)});
     });
-    setTimeout(()=>{try{inp.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}},50);
+    revealInp(inp,330);
   },
   settle(c){
     const key=c.dataset.k,n=c.children.length;if(!n)return;
@@ -2045,7 +2049,7 @@ const Kpd={el:null,inp:null,ex:'',fresh:true,
   open(i){
     if(!this.el)this.build();this.inp=i;this.ex=(i.value||'').trim();this.fresh=true;
     this.el.style.display='block';document.body.style.paddingBottom='360px';this.show();
-    setTimeout(()=>{try{i.scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}},50);
+    revealInp(i,360);
   },
   press(k){
     if(k==='X'){this.close();return}
