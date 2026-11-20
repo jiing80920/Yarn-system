@@ -377,14 +377,14 @@ function isEmptyData(d){return !d.beam&&!d.shrink&&!d.total&&!d.rpm&&!d.strips&&
 function saveMachine(n,d){
   try{const all=loadAll();
     if(isEmptyData(d))delete all[n];
-    else all[n]={beam:d.beam,shrink:d.shrink,total:d.total,pre:d.pre||"",rpm:d.rpm,strips:d.strips,eff:d.eff||"",startStr:d.startStr,recs:d.recs.map(r=>({id:r.id,qty:r.qty,time:new Date(r.time).toISOString()}))};
+    else all[n]={beam:d.beam,shrink:d.shrink,total:d.total,pre:d.pre||"",rpm:d.rpm,strips:d.strips,eff:d.eff||"",startStr:d.startStr,man:!!d.man,recs:d.recs.map(r=>({id:r.id,qty:r.qty,time:new Date(r.time).toISOString()}))};
     localStorage.setItem("prodMachines",JSON.stringify(all));}catch(e){}
 }
 function loadMachine(n){
   const v=loadAll()[n];
-  if(!v)return {beam:"",shrink:"",total:"",pre:"",rpm:"",strips:"",eff:"",startStr:toInput(new Date()),recs:[],nextId:1};
+  if(!v)return {beam:"",shrink:"",total:"",pre:"",rpm:"",strips:"",eff:"",startStr:toInput(new Date()),man:false,recs:[],nextId:1};
   const recs=(v.recs||[]).map(r=>({id:r.id,qty:r.qty,time:new Date(r.time)}));
-  return {beam:v.beam||"",shrink:v.shrink||"",total:v.total||"",pre:v.pre||"",rpm:v.rpm||"",strips:v.strips||"",eff:v.eff||"",startStr:v.startStr||toInput(new Date()),recs:recs,nextId:recs.reduce((a,r)=>Math.max(a,r.id),0)+1};
+  return {beam:v.beam||"",shrink:v.shrink||"",total:v.total||"",pre:v.pre||"",rpm:v.rpm||"",strips:v.strips||"",eff:v.eff||"",startStr:(v.man&&v.startStr)?v.startStr:toInput(new Date()),man:!!v.man,recs:recs,nextId:recs.reduce((a,r)=>Math.max(a,r.id),0)+1};
 }
 //ENDSTORE
 const MACHINES=["1-1","1-2","2-1","2-2","3-1","3-2","5-1","5-2","5-3","5-4","5-5","6-1","6-2","6-3","6-4","6-5","6-6","6-7","6-8"];
@@ -421,6 +421,8 @@ function App(){
   const [strips,setStrips]=useState(I.strips);
   const [eff,setEff]=useState(I.eff||"");
   const [startStr,setStartStr]=useState(I.startStr);
+  const [man,setMan]=useState(!!I.man);
+  useEffect(()=>{if(man)return;const t=setInterval(()=>setStartStr(toInput(new Date())),20000);return()=>clearInterval(t)},[man]);
   const [cur,setCur]=useState("");
   const [rd,setRd]=useState(()=>mmdd(new Date()));
   const [ed,setEd]=useState(null);
@@ -446,8 +448,8 @@ function App(){
   const saveSch=()=>{try{localStorage.setItem("prodSchedule",JSON.stringify(sch))}catch(e){}setSavedSch(sch);setSchMsg("已儲存為預設")};
   const resetSch=()=>{try{localStorage.removeItem("prodSchedule")}catch(e){}setSch(DEF_SCH);setSavedSch(DEF_SCH);setSchMsg("已還原為原廠預設")};
   const cfg=cfgOf(sch);
-  const curData={beam,shrink,total,pre,rpm,strips,eff,startStr,recs};
-  useEffect(()=>{saveMachine(mid,curData)},[mid,beam,shrink,total,pre,rpm,strips,eff,startStr,recs]);
+  const curData={beam,shrink,total,pre,rpm,strips,eff,startStr,man,recs};
+  useEffect(()=>{saveMachine(mid,curData)},[mid,beam,shrink,total,pre,rpm,strips,eff,startStr,man,recs]);
   useEffect(()=>{saveX(mid,{no:cno,fin:fin,note:nt})},[mid,cno,fin,nt]);
   const used=loadAll();
   const hasData=n=>n===mid?!isEmptyData(curData):!!used[n];
@@ -455,7 +457,7 @@ function App(){
     if(n===mid)return;
     saveMachine(mid,curData);
     const d=loadMachine(n);
-    setMid(n);setPre(d.pre||"");setInfo("");setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setRecs(d.recs);setCno(initNo(n));setFin((loadX()[n]||{}).fin||"");setNt(initNote(n));
+    setMid(n);setPre(d.pre||"");setInfo("");setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setMan(!!d.man);setRecs(d.recs);setCno(initNo(n));setFin((loadX()[n]||{}).fin||"");setNt(initNote(n));
     idRef.current=d.nextId;setCur("");setErr("");
     try{localStorage.setItem("prodCurMachine",String(n))}catch(e){}
   };
@@ -471,7 +473,7 @@ function App(){
   };
   const clearRecs=()=>{setRecs([]);setCur("");setErr("");idRef.current=1};
   const calcTotal=(b,s)=>{const B=parseFloat(b),S=parseFloat(s);if(b!==""&&s!==""&&B>0&&S>=0&&S<100)setTotal(String(Math.round(B*(1-S/100))))};
-  const clearAll=()=>{setBeam("");setShrink("");setTotal("");setRpm("");setStrips("");setEff("");setStartStr(toInput(new Date()));clearRecs();setCno("");setFin("");setNt(Object.assign({},NT0));setOpen(false);setBeamOpen(false);setSch(savedSch);setSchOpen(false);setSchMsg("")};
+  const clearAll=()=>{setBeam("");setShrink("");setTotal("");setRpm("");setStrips("");setEff("");setStartStr(toInput(new Date()));setMan(false);clearRecs();setCno("");setFin("");setNt(Object.assign({},NT0));setOpen(false);setBeamOpen(false);setSch(savedSch);setSchOpen(false);setSchMsg("")};
   const pickCoil=v=>{setCno(v);const c=findCoil(v,mid);if(!c)return;
     {const lastN=loadLog().filter(x=>x.type==="new"&&x.m===mid&&!x.x).pop();if(!lastN||nk(lastN.no)!==nk(c.no))logAdd({type:"new",m:mid,no:c.no,fab:c.fab,len:c.len,shr:c.shr,at:Date.now()})}const L=parseFloat(c.len);if(!(L>0))return;
     setBeam(String(L));setBeamOpen(true);const S=parseFloat(c.shr);if(c.shr!==""&&!isNaN(S)){setShrink(String(c.shr));calcTotal(String(L),String(c.shr))}};
@@ -491,7 +493,7 @@ function App(){
   const askP=(msg,fn)=>{try{if(window.parent&&window.parent!==window&&typeof window.parent.ask==="function"){window.parent.ask(msg,fn);return}}catch(e){}if(window.confirm(msg))fn()};
   const nextCoil=()=>{const fins=loadLog().filter(x=>x.type==="fin"&&!x.x&&x.m===mid).map(x=>nk(x.no)),L=[];
     (ysState().orders||[]).forEach(o=>(o.coils||[]).forEach(c=>{if(c&&c.ok&&c.m===mid&&nk(c.no)&&nk(c.no)!==nk(cno)&&fins.indexOf(nk(c.no))<0)L.push({no:c.no,fab:o.no||"",len:c.l,key:o.id+"|"+c.u})}));return L[0]||null};
-  const startNext=nx=>{clearRecs();setFin("");pickCoil(nx.no);setStartStr(toInput(new Date()));
+  const startNext=nx=>{clearRecs();setFin("");pickCoil(nx.no);setStartStr(toInput(new Date()));setMan(false);
     try{localStorage.setItem("prodNext",JSON.stringify({m:mid,no:nx.no,key:nx.key,at:Date.now()}))}catch(e){}};
   const cm=cno?findCoil(cno,mid):null,cl=coilList();
   const matchMsg=!cno?null:!cm?{t:"✗ 查無此盤頭號（請先在「一、託工單」的入庫盤頭輸入）",w:1}
@@ -628,9 +630,9 @@ function App(){
       h("label",null,"效率（%）"),numIn(eff,setEff),
       h("div",{className:"note"},"選填。計算每日產量後再乘上效率；未輸入以 100% 計算。"),
       h("label",null,"起算日期與時間"),
-      h("input",{type:"datetime-local",value:startStr,onChange:e=>setStartStr(e.target.value)}),
-      h("button",{className:"wide",onClick:()=>setStartStr(toInput(new Date()))},"重設為現在"),
-      h("div",{className:"note"},"自動帶入目前時間，可依實際開工時間修改。"),
+      h("input",{type:"datetime-local",value:startStr,onChange:e=>{setMan(true);setStartStr(e.target.value)}}),
+      h("button",{className:"wide",onClick:()=>{setMan(false);setStartStr(toInput(new Date()))}},"重設為現在"),
+      h("div",{className:"note"},"開啟時自動更新為目前時間；手動修改後即固定，按「重設為現在」恢復自動。"),
       h("div",{style:{marginTop:16,paddingTop:12,borderTop:"1px solid #7fc4ff22"}},
         h("button",{className:"tog",style:{fontSize:15},onClick:()=>setSchOpen(o=>!o)},h("span",null,"工廠開機／休息時間設定"),h("span",null,schOpen?"▲":"▼")),
         schOpen&&h("div",null,
@@ -1819,7 +1821,7 @@ const Link={
     const oldRecs=(old&&old.recs)||[],q=this.qtyOf(m);
     let next=Math.max(0,...oldRecs.map(r=>+r.id||0),...m.mades.map(x=>+x.cid||0))+1;
     const recs=m.mades.map(x=>{if(!x.cid)x.cid=next++;return {id:x.cid,qty:num(x.q)||0,time:new Date(this.tOf(x)).toISOString()}});
-    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:machPre(m)?String(machPre(m)):'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(old&&old.startStr)||this.nowStr(),recs};
+    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:machPre(m)?String(machPre(m)):'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(old&&old.startStr)||this.nowStr(),man:!!(old&&old.man),recs};
     if(old&&JSON.stringify(old)===JSON.stringify(o))return false;
     all[id]=o;return true;
   },
