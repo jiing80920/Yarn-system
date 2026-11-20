@@ -219,6 +219,9 @@ html{-webkit-text-size-adjust:100%}
 <div class="pg hide" id="pgCalc"><iframe id="calcFrame" title="生產完工計算機"></iframe></div>
 <div class="pg hide" id="pg2">
 <div id="sumArea"></div>
+<div class="card" id="finCard"><div class="card-h"><b>完工記錄 <span id="finN" style="font-weight:400;font-size:.9rem"></span></b></div>
+<div class="eq"><label>機台<select id="finM"></select></label><label>搜尋布號／盤頭號<input id="finQ" placeholder="例如 FAB 或 37"></label></div>
+<div id="finList"></div></div>
 <div class="stat" id="bkInfo" style="margin:0 0 8px"></div>
 <div class="acts"><button class="p" id="copy" type="button">複製統整</button><button id="print" type="button">列印</button><button id="export" type="button">匯出備份</button><button id="import" type="button">匯入還原</button><button class="w" id="reset" type="button">全部清除</button></div>
 <input type="file" id="impFile" accept=".json,application/json" class="hide">
@@ -577,8 +580,8 @@ function App(){
       yel.forEach(r=>{for(let c=0;c<head.length;c++){const ad=XLSX.utils.encode_cell({r:r,c:c});if(!ws1[ad])ws1[ad]={t:"s",v:""};ws1[ad].s={fill:{patternType:"solid",fgColor:{rgb:"FFFF00"}}}}});
       const ws2=XLSX.utils.aoa_to_sheet(detail);
       ws2["!cols"]=[{wch:8},{wch:8},{wch:12},{wch:20}];
-      const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量","生產明細"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":x.type==="switch"?"換布號":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",(x.type==="fin"||x.type==="switch")?(x.qty==null?"":x.qty):"",(x.rc||[]).map(r=>r.d+" "+r.q).join("；")]));
-      const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16},{wch:40}];
+      const lrows=[["時間","類型","機台","盤頭號","布號","盤頭長","完工時已生產數量","生產明細","領紗記錄","換布歷史"]].concat(loadLog().filter(x=>!x.x).sort((a,b)=>a.at-b.at).map(x=>[fmtFull(new Date(x.at)),x.type==="fin"?"完工":x.type==="switch"?"換布號":"選用新盤頭",x.m,x.no||"",x.fab||"",x.len||"",(x.type==="fin"||x.type==="switch")?(x.qty==null?"":x.qty):"",(x.rc||[]).map(r=>r.d+" "+r.q).join("；"),(x.pl||[]).map(p=>(p.d||"")+" "+(p.n||"")+" "+(p.b||"")+" "+p.q+"kg").join("；"),(x.rn||[]).map(r=>(r.no||"—")+" "+(r.q||0)+"碼").join("；")]));
+      const ws3=XLSX.utils.aoa_to_sheet(lrows);ws3["!cols"]=[{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:10},{wch:16},{wch:40},{wch:50},{wch:30}];
       const XA=loadX();
       const nrows=[["機台","機上緯密(T)","張力(N)","左絞邊","右絞邊","平綜","開口","捲取幅寬(公分)","捲取幅寬(英吋)","其他備註"]].concat(MACHINES.map(n=>{const t=Object.assign({},NT0,(XA[n]||{}).note||{});return [n,t.tw,t.ten,t.tl,t.tr,t.ph,t.op,t.cm,t.inch,t.other]}));
       const ws4=XLSX.utils.aoa_to_sheet(nrows);ws4["!cols"]=[{wch:8},{wch:12},{wch:9},{wch:9},{wch:9},{wch:9},{wch:9},{wch:14},{wch:14},{wch:40}];
@@ -1189,8 +1192,27 @@ function syncMachines(o){
 }
 /* 不使用瀏覽器內建的 alert／confirm（部分手機瀏覽器會擋掉，造成按了沒反應）*/
 window.alert=m=>toast(String(m));
-let cnFn=null;
-function ask(msg,fn){cnFn=fn;$('cnMsg').textContent=msg;$('cnModal').classList.remove('hide')}
+let cnFn=null,cnNoFn=null;
+function ask(msg,fn,fnNo,okT,noT){cnFn=fn;cnNoFn=fnNo||null;$('cnMsg').textContent=msg;$('cnOk').textContent=okT||'確定';$('cnNo').textContent=noT||'取消';$('cnModal').classList.remove('hide')}
+/* 新布號上機：與上一組比對紗種（先品代、再批號） */
+function archivePulls(mid,mk){
+  const m=st.mach[mid];if(!m)return;
+  const pl=m.pulls.map(p=>({d:p.d,n:p.n,b:p.b,q:p.q})),rn=(m.runs||[]).map(r=>({no:r.no,coil:r.coilNo,q:runMade(r),end:r.end})),
+    rc=m.mades.map(x=>({d:x.d,q:x.q})),yn=effYarns(m).map(y=>({n:y.n,b:y.b,wy:y.wy}));
+  try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');let hit=false;
+    for(let i=L.length-1;i>=0;i--){const x=L[i];if(x.type==='fin'&&!x.x&&x.m===mid){if(!x.pl){x.pl=pl;x.rn=rn;x.yn=yn;if(!x.rc||!x.rc.length)x.rc=rc.map(r=>({d:fmtD(r.d).slice(5),q:r.q}))}hit=true;break}}
+    if(!hit&&mk&&(pl.length||rc.length||rn.length))L.push({u:'ar'+Date.now().toString(36),type:'fin',m:mid,no:m.coilNo||'',fab:m.no||'',len:m.len,qty:mcalc(m,true).made,total:mcalc(m,true).qty,at:Date.now(),fa:'man'+Date.now(),rc:rc.map(r=>({d:fmtD(r.d).slice(5),q:r.q})),pl,rn,yn});
+    localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
+}
+function yarnCmp(m,o){
+  const oldP=[],newP=[],add=(a,y)=>{const n=(y.n||'').trim(),b=(y.b||'').trim();if(n||b)a.push({n:norm(n),b:norm(b)})};
+  effYarns(m).forEach(y=>add(oldP,y));m.pulls.forEach(y=>add(oldP,y));(o&&o.yarns||[]).forEach(y=>add(newP,y));
+  if(!oldP.length||!newP.length)return {kind:'none'};
+  const S=(a,f)=>[...new Set(a.map(f))].sort().join('|');
+  if(S(oldP,x=>x.n)!==S(newP,x=>x.n))return {kind:'diff',why:'品代不同'};
+  if(S(oldP,x=>x.n+'/'+x.b)!==S(newP,x=>x.n+'/'+x.b))return {kind:'diff',why:'批號不同'};
+  return {kind:'same'};
+}
 function saveOrder(){
   const c=st.cur;
   if(!c.no.trim()){alert('請先輸入布號');return}
@@ -1259,7 +1281,7 @@ function panelHTML(id){
     '<div class="sh">03｜緯紗用量</div>'+
     '<button class="add" type="button" data-act="tg" data-k="pull" style="margin:6px 0;text-align:left">'+(fold.pull?'▲':'▼')+' A｜領紗記錄</button>'+
     '<div style="display:'+(fold.pull?'block':'none')+'">'+drow(Ap,m.pdraft,'領用數量 (kg)','addPull','clrPull')+
-    '<div class="sh2">累計領用 (kg)</div><div data-o="plist"></div></div>'+
+    '<div class="sh2">累計領用 (kg)（只留目前布號這一組）</div><div data-o="plist"></div><button class="add" type="button" data-act="clrAllPull" data-id="'+id+'" style="margin:6px 0">清除全部領紗記錄</button></div>'+
     '<div class="sh2">B｜已生產數量記錄（連動第三大區，僅顯示明細；請在第三大區輸入）</div>'+
     '<div data-o="mlist"></div>'+
     '<button class="add" type="button" data-act="openSw" data-id="'+id+'" style="margin:8px 0;font-weight:700">⇄ 換布號（同一盤頭，接著生產下一個布號）</button>'+
@@ -1277,6 +1299,27 @@ function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);updat
 
 /* ---------- 更新 ---------- */
 let TABLES=[];
+/* 完工記錄（留檔）：來自 prodLog 的 fin 記錄 */
+function finLog(){try{return JSON.parse(localStorage.getItem('prodLog')||'[]').filter(x=>x&&x.type==='fin'&&!x.x)}catch(e){return []}}
+function renderFin(){
+  const ms=$('finM');if(!ms)return;
+  if(!ms.options.length)ms.innerHTML='<option value="">全部機台</option>'+IDS.map(i=>'<option value="'+i+'">'+i+'</option>').join('');
+  if(document.activeElement===$('finQ')&&!window._finForce)return;
+  const q=norm($('finQ').value||''),mv=ms.value;
+  const all=finLog().sort((a,b)=>(b.at||0)-(a.at||0));
+  const L=all.filter(x=>(!mv||x.m===mv)&&(!q||norm(x.fab||'').includes(q)||norm(x.no||'').includes(q)));
+  $('finN').textContent='（'+L.length+(L.length!==all.length?' / '+all.length:'')+' 筆）';
+  const tb=(head,rows)=>rows.length?'<table class="fit"><thead><tr>'+head.map((h,i)=>'<th'+(i?' class="n"':'')+'>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map((c,i)=>'<td'+(i?' class="n"':'')+'>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'<div class="empty">無</div>';
+  const dd=d=>d?esc(fmtD(d)):'—';
+  $('finList').innerHTML=L.length?L.map(x=>{
+    const d=new Date(x.at||0),rc=x.rc||[],pl=x.pl||[],rn=x.rn||[],yn=x.yn||[];
+    return '<details style="border:1px solid var(--line);border-radius:10px;margin:8px 0;padding:8px 10px"><summary style="cursor:pointer;font-weight:700">'+esc(x.m||'')+'　'+esc(x.fab||'（未填布號）')+'　盤頭 '+esc(x.no||'—')+'<br><span style="font-weight:400;font-size:.88rem;color:var(--mute)">完工 '+d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())+'　成品 '+fmt(num(x.total))+' 碼　已生產 '+fmt(num(x.qty))+' 碼</span></summary>'+
+      '<div class="sh2">生產記錄（'+rc.length+' 筆）</div>'+tb(['日期','數量 (碼)'],rc.map(r=>[esc(r.d||''),fmt(num(r.q))]))+
+      '<div class="sh2">領紗記錄</div>'+(x.pl?tb(['日期','品代 批號','領用 (kg)'],pl.map(p=>[dd(p.d),esc(lab(p.n||'',p.b||'')),fmt(num(p.q))])):'<div class="empty">（此筆為較早完工，未留存）</div>')+
+      '<div class="sh2">換布歷史</div>'+(rn.length?tb(['布號','生產 (碼)'],rn.map(r=>[esc(r.no||'—'),fmt(num(r.q))])):'<div class="empty">無</div>')+
+      (yn.length?'<div class="sh2">紗種</div>'+tb(['品代 批號','每碼用紗量'],yn.map(y=>[esc(lab(y.n||'',y.b||'')),fmt(num(y.wy))])):'')+
+      '<div style="margin-top:8px"><button class="sm x" type="button" data-act="delFin" data-u="'+esc(x.u)+'" style="height:auto;padding:4px 12px">刪除這筆</button></div></details>'}).join(''):'<div class="empty">尚無完工記錄</div>';
+}
 function update(){
   const dlN=new Set(),dlB=new Set();
   const addDL=y=>{if(y.n&&y.n.trim())dlN.add(y.n.trim());if(y.b&&y.b.trim())dlB.add(y.b.trim())};
@@ -1390,6 +1433,7 @@ function update(){
     pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:c.need,pull:c.pull,used:c.used,stock:c.stock,made:0});
   }
   $('sumArea').innerHTML=TABLES.map(tableHTML).join('');
+  renderFin();
   $('dlName').innerHTML=[...dlN].map(v=>'<option value="'+esc(v)+'">').join('');
   const wset=new Set(warnIds);
   document.querySelectorAll('#machSel option').forEach(o=>{if(o.disabled)return;o.textContent=o.value+mmark(o.value)+(wset.has(o.value)?' ⚠ 需領紗':'')});
@@ -1474,10 +1518,19 @@ document.addEventListener('change',e=>{
     const m=st.mach[st.sel],v=e.target.value;
     if(!v){m.src='';save();renderMach();return}
     const x=scheduledFor(st.sel).find(y=>y.key===v);if(!x)return;
-    m.src=v;m.no=x.o.no;m.coilNo=x.c.no||'';m.len=x.c.l;m.shr=x.o.shr;
-    m.yarns=x.o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
-    if(!m.yarns.length)m.yarns=[yarnB()];
-    save();renderMach();
+    const hasOld=m.no.trim()&&norm(m.no)!==norm(x.o.no||'');
+    const apply=clear=>{
+      if(hasOld)archivePulls(st.sel,true);        // 換布號前，上一組資料留檔
+      if(clear){m.pulls=[];m.pdraft=draftB()}      // 上一組的領紗記錄不留存
+      m.src=v;m.no=x.o.no;m.coilNo=x.c.no||'';m.len=x.c.l;m.shr=x.o.shr;
+      m.yarns=x.o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
+      if(!m.yarns.length)m.yarns=[yarnB()];
+      save();renderMach()};
+    const cmp=hasOld?yarnCmp(m,x.o):{kind:'none'};
+    const revert=()=>{e.target.value=m.src||''};
+    if(cmp.kind==='same')ask('新布號「'+(x.o.no||'')+'」的紗種（品代、批號）與上一組「'+m.no+'」相同。\n是否繼續使用上一組的領紗記錄？',()=>apply(false),()=>apply(true),'繼續使用','不使用，重新領紗');
+    else if(cmp.kind==='diff')ask('新布號「'+(x.o.no||'')+'」與上一組「'+m.no+'」的'+cmp.why+'。\n是否換布號？\n（換布號後，上一組的領紗記錄不留存）',()=>apply(true),revert,'換布號','取消');
+    else apply(hasOld);
   }
 });
 function addCoilRec(){
@@ -1549,8 +1602,8 @@ $('dlWhole').onclick=()=>{
   const b=$('dlWhole');
   if(b.dataset.ok!=='1'){b.dataset.ok='1';b.textContent='確定刪除？再按一次';return}
   delWhole(o);$('dlModal').classList.add('hide');toast('已刪除託工單')};
-$('cnOk').onclick=()=>{$('cnModal').classList.add('hide');const f=cnFn;cnFn=null;if(f)f()};
-$('cnNo').onclick=()=>{$('cnModal').classList.add('hide');cnFn=null};
+$('cnOk').onclick=()=>{$('cnModal').classList.add('hide');const f=cnFn;cnFn=null;cnNoFn=null;if(f)f()};
+$('cnNo').onclick=()=>{$('cnModal').classList.add('hide');const f=cnNoFn;cnFn=null;cnNoFn=null;if(f)f()};
 $('swCancel').onclick=()=>$('swModal').classList.add('hide');
 $('swNo').addEventListener('input',e=>{
   const t=e.target;if(!e.isComposing){const u=t.value.toUpperCase();if(u!==t.value)t.value=u}
@@ -1617,6 +1670,8 @@ document.addEventListener('click',e=>{
       const qi=document.querySelector('#panel [data-l="draft"][data-f="q"]');if(qi)qi.value=dr.q;
       return}
     case 'cpMade':{const r=M.mades[j];if(r)M.mades.push({d:today(),n:'',b:'',q:r.q,t:Date.now()});break}
+    case 'delFin':{const u=d.u;ask('確定要刪除這筆完工記錄嗎？',()=>{try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');L.forEach(x=>{if(x.u===u)x.x=1});localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}save();window._finForce=1;renderFin();window._finForce=0});return}
+    case 'clrAllPull':ask('確定要清除這台機台全部的領紗記錄嗎？',()=>{M.pulls=[];save();renderMach()});return;
     case 'clrAllMade':ask('確定要清除這台機台全部的生產紀錄嗎？',()=>{M.mades=[];save();renderMach()});return;
     case 'addSY':st.cur.yarns.push(yarnB());save();renderSub();return;
     case 'rmSY':{const a=st.cur.yarns;if(a.length>1)a.splice(j,1);else a[0]=yarnB();save();renderSub();return}
@@ -1774,10 +1829,16 @@ const Link={
     try{localStorage.removeItem('prodNext')}catch(e){}
     const m=st.mach[N.m];if(!m)return false;
     const x=scheduledFor(N.m).find(y=>y.key===N.key);
+    const cmp=yarnCmp(m,x?x.o:null),oldNo=m.no;
+    archivePulls(N.m);                                  // 上一組的領紗記錄存進完工記錄
+    let keep=false;
+    if(cmp.kind==='same'&&m.pulls.length)keep=true;     // 紗種相同：稍後詢問是否繼續使用
+    else{m.pulls=[];m.pdraft=draftB()}
     m.runs=[];m.mades=[];m.fin='';m.draft=draftB();
     if(x){m.src=x.key;m.no=x.o.no;m.coilNo=x.c.no||'';m.len=x.c.l;m.shr=x.o.shr;
       m.yarns=x.o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));if(!m.yarns.length)m.yarns=[yarnB()]}
     else m.coilNo=N.no||m.coilNo;
+    if(keep)setTimeout(()=>ask('新布號「'+(m.no||'')+'」的紗種（品代、批號）與上一組「'+(oldNo||'')+'」相同。\n是否繼續使用上一組的領紗記錄？',()=>{},()=>{m.pulls=[];m.pdraft=draftB();save();renderMach()},'繼續使用','不使用，重新領紗'),300);
     return true;
   },
   importAll(){
@@ -2022,6 +2083,8 @@ $('impFile').onchange=e=>{
   r.readAsText(f);
 };
 $('oq').addEventListener('input',renderOrders);
+$('finM').addEventListener('change',()=>{window._finForce=1;renderFin();window._finForce=0});
+$('finQ').addEventListener('input',()=>{window._finForce=1;renderFin();window._finForce=0});
 $('ordHd').addEventListener('click',e=>{if(e.target.id==='oq')return;const w=$('oWrap'),open=w.style.display==='none';w.style.display=open?'block':'none';$('oq').style.display=open?'':'none';$('ordArr').textContent=open?'▲':'▼'});
 /* ---------- 雲端同步（GitHub 私人 repository；單人、多裝置）---------- */
 const SYNC_KEY='yarn-sync-v1';
