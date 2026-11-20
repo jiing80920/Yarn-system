@@ -651,7 +651,7 @@ function App(){
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"日期"),h("input",{type:"text",inputMode:"none","data-wheel":"1",value:rd,placeholder:"例如：11/18",style:{width:"100%",minHeight:64,fontSize:24},onChange:e=>setRd(e.target.value)})),
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"生產數量"),h("div",{className:"disp"},cur===""?"0":cur))),
       h("button",{className:"add wide",style:{marginTop:10},onClick:add},"新增"),
-      preN>0&&h("div",{className:"note",style:{color:"var(--ac)",fontWeight:700}},(info||"盤頭已生產過 "+fmtN(preN)+" 碼（由第二大區連動），剩餘數量已扣除")),
+      preN>0&&h("div",{className:"note",style:{color:"var(--ac)",fontWeight:700}},(info||"盤頭已生產過 "+fmtN(preN)+" 碼（由第一大區連動），剩餘數量已扣除")),
       err&&h("div",{className:"err"},err),
       h("div",{className:"pad"},keys.map(k=>h("button",{key:k,onClick:()=>{
         if(k==="清空"){setCur("");setErr("")}else if(k==="刪除"){setCur(c=>c.slice(0,-1))}else pressKey(k)}},k))),
@@ -789,7 +789,7 @@ function load(){
     delete o.wy;
     if(!Array.isArray(o.coils))o.coils=[];
     o.coils=o.coils.filter(c=>c&&(num(c.l)>0||(c.no&&String(c.no).trim())||c.m));
-    o.coils.forEach(c=>{if(c.m===undefined)c.m='';if(c.ok===undefined)c.ok=false;if(c.no===undefined)c.no='';if(!c.u)c.u=uid()});
+    o.coils.forEach(c=>{if(c.m===undefined)c.m='';if(c.ok===undefined)c.ok=false;if(c.no===undefined)c.no='';if(c.pre===undefined)c.pre='';if(!c.u)c.u=uid()});
     if(!o.cdraft)o.cdraft=coilDraftB();
   };
   fixO(st.cur);st.orders.forEach(fixO);
@@ -816,6 +816,9 @@ function load(){
   const U=o=>{['no','n','b'].forEach(k=>{if(typeof o[k]==='string')o[k]=o[k].toUpperCase()})};
   [st.cur].concat(st.orders).forEach(o=>{U(o);o.yarns.forEach(U)});
   IDS.forEach(id=>{const m=st.mach[id];U(m);m.yarns.forEach(U);m.pulls.forEach(U);m.stocks.forEach(U);m.mades.forEach(U);U(m.draft);U(m.pdraft);U(m.sdraft)});
+  IDS.forEach(id=>{const m=st.mach[id];if(num(m.pre)>0){       // 舊資料：機台上的已生產過數量搬到第一大區對應盤頭
+    let c=null;if(m.src&&m.src.indexOf('|')>0){const o=st.orders.find(x=>x.id===m.src.split('|')[0]);if(o)c=o.coils.find(x=>x.u===m.src.split('|')[1])}
+    if(c){if(!(num(c.pre)>0))c.pre=m.pre;m.pre=''}}});
   if(!IDS.includes(st.sel))st.sel=IDS[0];
 }
 const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -1010,7 +1013,7 @@ function doSwitch(id,o){
     yarns:JSON.parse(JSON.stringify(m.yarns)),mades:m.mades.map(x=>({d:x.d,q:x.q,t:x.t})),qty:mcalc(m,true).qty};
   (m.runs=m.runs||[]).push(snap);
   try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');L.push({u:'sw'+Date.now().toString(36),type:'switch',m:id,no:m.coilNo||'',fab:(snap.no||'—')+' → '+o.no,len:m.len,qty:runMade(snap),at:Date.now()});localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
-  m.no=o.no;m.len=String(Math.round(o.rem));m.shr='0';m.rpm=o.rpm;m.pit=o.pit;m.start=o.time;m.mades=[];m.fin='';m.src='';
+  m.no=o.no;m.len=String(Math.round(o.rem));m.shr='0';m.rpm=o.rpm;m.pit=o.pit;m.start=o.time;m.mades=[];m.fin='';m.src='';m.pre='';
   if(o.yarns)m.yarns=o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
   m.draft=draftB();
   try{const X=JSON.parse(localStorage.getItem('prodExtra')||'{}')||{};X[id]=Object.assign({},X[id],{fin:''});localStorage.setItem('prodExtra',JSON.stringify(X))}catch(e){}
@@ -1069,11 +1072,20 @@ function addRun(t0,ms){
   }
   return null;
 }
+function machPre(m){
+  let c=null;
+  if(m.src&&m.src.indexOf('|')>0){const o=st.orders.find(x=>x.id===m.src.split('|')[0]);if(o)c=o.coils.find(x=>x.u===m.src.split('|')[1])}
+  if(!c&&m.coilNo&&String(m.coilNo).trim()){
+    const k=norm(m.coilNo),id=IDS.find(i=>st.mach[i]===m);let f=null;
+    st.orders.forEach(o=>o.coils.forEach(x=>{if(norm(x.no)===k&&(!f||(x.m===id&&f.m!==id)))f=x}));c=f}
+  if(c)return num(c.pre)||0;
+  return num(m.pre)||0;
+}
 function finishCalc(m,qty){
   const rpm=num(m.rpm),pit=num(m.pit);
   if(qty===null||qty<=0||rpm===null||rpm<=0||pit===null||pit<=0||!m.start)return null;
   const t0=new Date(String(m.start).length<=10?m.start+'T08:00':m.start);if(isNaN(t0.getTime()))return null;
-  const rem=qty-(num(m.pre)||0);          // 盤頭已生產過的數量要先扣除
+  const rem=qty-machPre(m);          // 盤頭已生產過的數量要先扣除
   const daily=rpm*40/pit,days=Math.max(0,rem)/daily;
   return {daily,days,end:addRun(t0,days*86400000)};
 }
@@ -1146,6 +1158,7 @@ function subHTML(s){
     (!coilOpen?'':s.coils.length?s.coils.map((c,j)=>{const b=A('sub',0,'coils',j);
       const fd=coilDone(c);
       return '<div class="rw k6">'+inp(b,'d','日期',c.d,{date:1})+inp(b,'no','盤頭號',c.no,{up:1})+inp(b,'l','盤頭長度 (碼)',c.l,{n:1})+machSel(b,'m','預排機台號',c.m)+chk(b,'ok','排定',c.ok,!c.m)+xbtn('rmCoil','data-j="'+j+'"')+'</div>'+
+        '<div class="eq">'+inp(b,'pre','已生產過數量 (碼)（沒有就留空）',c.pre,{n:1})+'</div>'+
         (fd?'<div class="coildone">✓ 完成　'+esc(fd.m||'')+' 機台　'+fmtD(Link.isoD(fd.at))+(fd.qty!=null?'　已生產 '+fmt(num(fd.qty))+' 碼':'')+'</div>':'')}).join(''):'<div class="empty">尚無入庫盤頭記錄</div>')+
     '<div class="eq estrow" style="margin-top:14px">'+out('總盤頭數量 (碼)','ct')+'<span class="op">×</span>'+inp(a,'shr','預估織縮 (%)',s.shr,{n:1})+'<span class="op">=</span>'+out('預估可生產數量 (碼)','est')+'</div>'+
     '<div class="sh">B｜每碼用紗量</div>'+
@@ -1231,7 +1244,7 @@ function saveOrder(){
 }
 
 /* ---------- 第二大區：機台設定 ---------- */
-function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,m.pre,m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
+function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,machPre(m),m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
 const hm=t=>{const d=new Date(t);return p2(d.getHours())+':'+p2(d.getMinutes())};
 function mmark(id){const m=st.mach[id];return hasData(m)?(m.sig===sigOf(m)?' ●':' ○'):(m.sig?' ○':'')}
 const hasData=m=>!!(m.no.trim()||m.len||m.start||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
@@ -1294,7 +1307,7 @@ function panelHTML(id){
     '<div class="sh" style="margin-top:0;border-top:0;padding-top:0">01｜生產設定</div>'+
     '<div class="eq">'+srcSel+inp(a,'no','布號',m.no,{w:1,up:1})+inp(a,'coilNo','盤頭號',m.coilNo,{up:1})+'</div>'+
     '<div class="eq">'+inp(a,'len','盤頭長 (碼)',m.len,{n:1})+'<span class="op">×</span>'+inp(a,'shr','織縮 (%)',m.shr,{n:1})+'<span class="op">=</span>'+out('成品數量 (碼)','qty')+'</div>'+
-    '<div class="eq">'+inp(a,'pre','盤頭已生產過數量 (碼)（沒有就留空）',m.pre,{n:1})+out('尚需生產 (碼)','remq')+'</div>'+
+    '<div class="eq">'+out('盤頭已生產過 (碼)（第一大區）','preo')+out('尚需生產 (碼)','remq')+'</div>'+
     '<div class="sh">02｜開機與預估完工</div><div>'+
     '<div class="eq">'+inp(a,'start','開機時間',m.start,{dt:1})+inp(a,'rpm','轉速',m.rpm,{n:1})+inp(a,'pit','緯密 (T)',m.pit,{n:1})+'</div>'+
     '<div class="eq">'+out('日產量 (碼/天)','daily')+out('所需天數','days')+'<label class="w">預估完工時間<div class="val"><span data-o="fin">—</span></div></label></div></div>'+
@@ -1425,7 +1438,7 @@ function update(){
   if(qo){
     const m=st.mach[st.sel],c=mcalc(m);
     const setp=(o,t)=>{const e=pn.querySelector('[data-o="'+o+'"]');if(e)e.textContent=t};
-    setp('qty',fmt(c.qty));setp('remq',c.qty===null?'—':fmt(Math.max(0,c.qty-(num(m.pre)||0))));
+    setp('qty',fmt(c.qty));setp('preo',machPre(m)>0?fmt(machPre(m)):'—');setp('remq',c.qty===null?'—':fmt(Math.max(0,c.qty-machPre(m))));
     c.rowNeed.forEach((x,j)=>setp('yn'+j,(x.need||x.has)?fmt(x.need):'—'));
     const wbox=pn.querySelector('[data-o="warn"]'),ws=warnFrom(c);
     if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg）</span>').join('')+'</div>':'';
@@ -1574,7 +1587,7 @@ document.addEventListener('change',e=>{
 function addCoilRec(){
   const c=st.cur,cd=c.cdraft||(c.cdraft=coilDraftB());
   if(!(num(cd.l)>0)){alert('請輸入盤頭長度 (碼)');return}
-  c.coils.push({u:uid(),d:cd.d||today(),no:cd.no,l:String(num(cd.l)),m:cd.m,ok:false});
+  c.coils.push({u:uid(),d:cd.d||today(),no:cd.no,l:String(num(cd.l)),m:cd.m,ok:false,pre:''});
   c.cdraft={d:cd.d,no:'',l:'',m:''};
   save();renderSub();
   setTimeout(()=>{const e=document.querySelector('#subList [data-l="cdraft"][data-f="no"]');if(e)e.focus()},0);
@@ -1806,7 +1819,7 @@ const Link={
     const oldRecs=(old&&old.recs)||[],q=this.qtyOf(m);
     let next=Math.max(0,...oldRecs.map(r=>+r.id||0),...m.mades.map(x=>+x.cid||0))+1;
     const recs=m.mades.map(x=>{if(!x.cid)x.cid=next++;return {id:x.cid,qty:num(x.q)||0,time:new Date(this.tOf(x)).toISOString()}});
-    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:m.pre||'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
+    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:machPre(m)?String(machPre(m)):'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
     if(old&&JSON.stringify(old)===JSON.stringify(o))return false;
     all[id]=o;return true;
   },
