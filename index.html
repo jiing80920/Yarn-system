@@ -953,8 +953,8 @@ function mcalc(m,noRuns){
 }
 function ystat(x){
   const rem=x.pull>0?x.pull-x.need:null;
-  const left=x.used>0?x.pull-x.used:null;                       // 廠內應餘紗 = 領用 − 已用
-  const diff=(x.stock>0&&left!==null)?x.stock-left:null;        // 比對差異 = 庫存 − 廠內應餘紗
+  const left=x.used>0?x.pull+x.stock-x.used:null;               // 應餘 = 領用 + 庫存 − 已用
+  const diff=(x.stock>0&&left!==null)?x.stock-left:null;        // 差異 = 庫存 − 應餘
   const act=(x.made>0&&x.pull>0)?(x.pull-x.stock)/x.made:null;      // 實際用紗量 = (領用 − 庫存) ÷ 已生產碼數
   return {rem,left,diff,act};
 }
@@ -964,7 +964,7 @@ const warnMsg=w=>w.ratio===null?'尚未領紗，請盡快領紗':(w.ratio>=1?'�
 const nc=(v,red,grn)=>'<td class="n'+(red?' neg':grn?' pos':'')+'">'+fmt(v)+'</td>';
 function statRow(name,x){
   const t=ystat(x);
-  return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)<0,t.rem!==null&&r4(t.rem)>0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+nc(x.stock||null)+nc(t.diff,t.diff!==null&&r4(t.diff)!==0)+nc(t.act)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
+  return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)<0,t.rem!==null&&r4(t.rem)>0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+nc(x.stock||null)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
 }
 function plainList(list,id,act,qLabel){
   if(!list.length)return '<div class="empty">尚無記錄</div>';
@@ -1029,16 +1029,18 @@ function groupList(list,id,act,qLabel){
     if(!e){e={n:x.n.trim(),b:x.b.trim(),items:[],sum:0};g.set(k,e)}
     const q=num(x.q)||0;e.items.push({x,j});e.sum+=q;total+=q;
   });
+  const oyM=act==='rmPull'?orderYarns((st.mach[id]||{}).no):null,okSet=oyM?new Set(oyM.map(y=>kk(y.n||'',y.b||''))):null;
+  let offN=0;if(okSet)g.forEach((e,k)=>{if(!okSet.has(k)){e.off=1;offN+=e.items.length}});
   const gs=[...g.values()].sort((a,b)=>a.n.localeCompare(b.n,'zh-TW')||a.b.localeCompare(b.b,'zh-TW',{numeric:true}));
   let h='<table><thead><tr><th>日期</th><th class="n">'+qLabel+'</th><th class="n">刪除</th></tr></thead><tbody>';
   gs.forEach(e=>{
-    h+='<tr class="gh"><td>'+esc(lab(e.n,e.b)||'（未指定品代／批號）')+'</td><td class="n">小計 '+fmt(e.sum)+'</td><td class="n">'+e.items.length+' 筆</td></tr>';
+    h+='<tr class="gh"><td>'+esc(lab(e.n,e.b)||'（未指定品代／批號）')+(e.off?' <span style="color:var(--warn);font-weight:700">（不在託工單）</span>':'')+'</td><td class="n">小計 '+fmt(e.sum)+'</td><td class="n">'+e.items.length+' 筆</td></tr>';
     e.items.slice().sort((a,b)=>String(a.x.d).localeCompare(String(b.x.d))||a.j-b.j).forEach(({x,j})=>{
       const lk=act==='rmPull'?'pulls':'stocks',at='data-sc="mach" data-i="'+id+'" data-l="'+lk+'" data-j="'+j+'"';
       h+='<tr><td><input class="ce" '+at+' data-f="d" data-date="1" inputmode="none" value="'+fmtD(x.d)+'"></td><td class="n"><input class="ce num" '+at+' data-f="q" data-num="1" inputmode="decimal" value="'+esc(x.q)+'"></td><td class="n"><button class="sm x" style="height:auto;padding:4px 10px" type="button" data-act="'+act+'" data-id="'+id+'" data-j="'+j+'">刪除</button></td></tr>';
     });
   });
-  return h+'</tbody><tfoot><tr><td>合計</td><td class="n">'+fmt(total)+'</td><td class="n">共 '+list.length+' 筆</td></tr></tfoot></table>';
+  return h+'</tbody><tfoot><tr><td>合計</td><td class="n">'+fmt(total)+'</td><td class="n">共 '+list.length+' 筆</td></tr></tfoot></table>'+(offN?'<button class="add" type="button" data-act="clrOffPull" data-id="'+id+'" style="margin:6px 0;color:var(--warn)">移除不在託工單的領紗記錄（'+offN+' 筆）</button>':'');
 }
 /* 預估完工：成品數量 ÷ (轉速×40÷緯密) = 天數；工作時間為週一 08:00 ～ 週日 08:00（週日 08:00 ～ 週一 08:00 休息） */
 const WD=['日','一','二','三','四','五','六'];
@@ -1238,7 +1240,9 @@ function scheduledFor(id){
 function machPairs(m){
   const mp=new Map();
   const add=x=>{if(!x)return;const n=(x.n||'').trim(),b=(x.b||'').trim();if(!n&&!b)return;mp.set(kk(n,b),{n,b})};
-  effYarns(m).forEach(add);m.pulls.forEach(add);m.stocks.forEach(add);
+  const oy=orderYarns(m.no);
+  if(oy)oy.forEach(add);      // 有對應託工單：品代／批號只用託工單設定的
+  else{effYarns(m).forEach(add);m.pulls.forEach(add);m.stocks.forEach(add)}
   return [...mp.values()];
 }
 function machBatches(m,n){
@@ -1246,7 +1250,7 @@ function machBatches(m,n){
   machPairs(m).forEach(p=>{if(p.b&&norm(p.n)===k)mp.set(norm(p.b),p.b)});
   return [...mp.values()];
 }
-const YTHEAD='<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">差異</th><th class="n">實際<br>用量</th><th class="n">比例</th></tr></thead>';
+const YTHEAD='<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">比例</th></tr></thead>';
 /* FIN：這台機台最近一次完工的布（取自完工記錄） */
 function finBlock(m,id){
   let E=null;try{E=JSON.parse(localStorage.getItem('prodLog')||'[]').filter(x=>x.type==='fin'&&!x.x&&x.m===id).sort((a,b)=>(b.at||0)-(a.at||0))[0]||null}catch(e){}
@@ -1449,7 +1453,7 @@ function update(){
       else{
         const d=new Date(fb.E.at||0);fnn.textContent='布號 '+(fb.E.fab||'—')+'　完工 '+(d.getMonth()+1)+'/'+d.getDate();
         const R=fb.rows.filter(x=>x.need||x.pull||x.used||x.stock),sf=f=>R.reduce((a,x)=>a+(x[f]||0),0);
-        ft.innerHTML=R.length?R.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--mute)">（此筆為較早完工，未留存紗種明細）</td></tr>';
+        ft.innerHTML=R.length?R.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mute)">（此筆為較早完工，未留存紗種明細）</td></tr>';
         ff.innerHTML=R.length?statRow('總計',{need:sf('need'),pull:sf('pull'),used:sf('used'),stock:sf('stock'),made:0}):'';
         const fm=pn.querySelector('[data-o="fman"]');
         if(fm)fm.innerHTML=(fb.rows.length?'<div class="note2" style="margin:0 0 4px">這張布沒用到的紗種，可點下面移除（只影響 FIN 這張表，不影響其他資料）：</div>'+fb.rows.map(x=>'<button class="sm" type="button" data-act="finHide" data-u="'+esc(fb.E.u)+'" data-k="'+encodeURIComponent(kk(x.n,x.b))+'" style="height:auto;padding:4px 10px;margin:2px 4px 2px 0">✕ '+esc(lab(x.n,x.b)||'（未填品代）')+'</button>').join(''):'')+
@@ -1701,6 +1705,8 @@ document.addEventListener('click',e=>{
         L.forEach(x=>{if(x.u!==d.u)return;if(d.act==='finShow')x.xy=[];else{x.xy=(x.xy||[]).concat([decodeURIComponent(d.k)])}});
         localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
       save();renderMach();return}
+    case 'clrOffPull':{const oy=orderYarns(M.no);if(!oy)return;const ok=new Set(oy.map(y=>kk(y.n||'',y.b||'')));
+      ask('確定要移除不在託工單紗種內的領紗記錄嗎？',()=>{M.pulls=M.pulls.filter(p=>ok.has(kk(p.n||'',p.b||'')));save();renderMach()});return}
     case 'clrAllPull':ask('確定要清除這台機台全部的領紗記錄嗎？',()=>{M.pulls=[];save();renderMach()});return;
     case 'clrAllMade':ask('確定要清除這台機台全部的生產紀錄嗎？',()=>{M.mades=[];save();renderMach()});return;
     case 'addSY':st.cur.yarns.push(yarnB());save();renderSub();return;
