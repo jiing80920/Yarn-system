@@ -1239,6 +1239,19 @@ function machBatches(m,n){
   machPairs(m).forEach(p=>{if(p.b&&norm(p.n)===k)mp.set(norm(p.b),p.b)});
   return [...mp.values()];
 }
+const YTHEAD='<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">差異</th><th class="n">實際<br>用量</th><th class="n">比例</th></tr></thead>';
+/* FIN：這台機台最近一次完工的布（取自完工記錄） */
+function finBlock(m,id){
+  let E=null;try{E=JSON.parse(localStorage.getItem('prodLog')||'[]').filter(x=>x.type==='fin'&&!x.x&&x.m===id).sort((a,b)=>(b.at||0)-(a.at||0))[0]||null}catch(e){}
+  if(!E)return null;
+  const made=(E.rc||[]).reduce((a,r)=>a+(num(r.q)||0),0)||num(E.qty)||0,total=num(E.total)||0;
+  const mp=new Map(),get=(n,b)=>{const k=kk(n||'',b||'');let e=mp.get(k);if(!e){e={n:(n||'').trim(),b:(b||'').trim(),need:0,pull:0,used:0,stock:0,made:made};mp.set(k,e)}return e};
+  (E.yn||[]).forEach(y=>{const wy=num(y.wy),e=get(y.n,y.b);if(wy!==null){e.need+=total*wy;e.used+=made*wy}});
+  (E.pl||[]).forEach(p=>{get(p.n,p.b).pull+=num(p.q)||0});
+  const rows=[...mp.values()];
+  rows.forEach(e=>{m.stocks.forEach(x=>{if(kk(x.n||'',x.b||'')===kk(e.n,e.b))e.stock+=num(x.q)||0})});
+  return {E,rows};
+}
 function panelHTML(id){
   const m=st.mach[id],a=A('mach',id),sc=scheduledFor(id);
   const pairs=machPairs(m),useSel=pairs.length>0;
@@ -1278,8 +1291,9 @@ function panelHTML(id){
     '<button class="add" type="button" data-act="tg" data-k="stock" style="margin:6px 0;text-align:left">'+(fold.stock?'▲':'▼')+' D｜廠內庫存記錄</button>'+
     '<div style="display:'+(fold.stock?'block':'none')+'">'+drow(As,m.sdraft,'庫存量 (kg)','addStock','clrStock',1)+
     '<div class="sh2">目前庫存 (kg)</div><div data-o="slist"></div></div>'+
-    '<div class="sh">04｜整合</div><div style="overflow-x:auto">'+
-    '<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">庫存</th><th class="n">差異</th><th class="n">實際<br>用量</th><th class="n">比例</th></tr></thead><tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div></div>';
+    '<div class="sh">04｜整合</div>'+
+    '<div class="sh2" style="margin-top:6px">NOW　<span data-o="nowNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div>'+
+    '<div class="sh2" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:10px">FIN　<span data-o="finNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ftab"></tbody><tfoot data-o="ffoot"></tfoot></table></div></div>';
 }
 function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);update()}
 
@@ -1414,8 +1428,23 @@ function update(){
     if(mb){mb.textContent=m.sig?'更新存檔':'儲存';mb.disabled=(!has&&!m.sig)||(!!m.sig&&!dirty)}
     const f=finishCalc(m,c.qty);
     setp('daily',f?fmt(f.daily):'—');setp('days',f?fmt(f.days):'—');setp('fin',m.fin?'已完工 '+tsFull(m.fin).slice(0,16):f&&f.end?dtFmt(f.end):'—');
-    pn.querySelector('[data-o="ytab"]').innerHTML=c.ys.filter(x=>x.need||x.pull||x.used||x.stock).map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join('');
-    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:c.need,pull:c.pull,used:c.used,stock:c.stock,made:0});
+    /* 整合：只列目前布號的紗種（上一組的紗不留存、不列入）；目前布號沒有紗種資料時才列全部 */
+    let vy=c.ys.filter(x=>(x.cur||x.rm)&&(x.need||x.pull||x.used||x.stock));
+    if(!c.ys.some(x=>x.cur))vy=c.ys.filter(x=>x.need||x.pull||x.used||x.stock);
+    const sm=f=>vy.reduce((a,x)=>a+(x[f]||0),0);
+    pn.querySelector('[data-o="ytab"]').innerHTML=vy.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join('');
+    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:sm('need'),pull:sm('pull'),used:sm('used'),stock:sm('stock'),made:0});
+    const nn=pn.querySelector('[data-o="nowNo"]');if(nn)nn.textContent=m.no.trim()?'布號 '+m.no.trim():'（尚未填布號）';
+    const fb=finBlock(m,st.sel),ft=pn.querySelector('[data-o="ftab"]'),ff=pn.querySelector('[data-o="ffoot"]'),fnn=pn.querySelector('[data-o="finNo"]');
+    if(ft){
+      if(!fb){fnn.textContent='（尚無完工）';ft.innerHTML='';ff.innerHTML=''}
+      else{
+        const d=new Date(fb.E.at||0);fnn.textContent='布號 '+(fb.E.fab||'—')+'　完工 '+(d.getMonth()+1)+'/'+d.getDate();
+        const R=fb.rows.filter(x=>x.need||x.pull||x.used||x.stock),sf=f=>R.reduce((a,x)=>a+(x[f]||0),0);
+        ft.innerHTML=R.length?R.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--mute)">（此筆為較早完工，未留存紗種明細）</td></tr>';
+        ff.innerHTML=R.length?statRow('總計',{need:sf('need'),pull:sf('pull'),used:sf('used'),stock:sf('stock'),made:0}):'';
+      }
+    }
   }
   $('sumArea').innerHTML=TABLES.map(tableHTML).join('');
   renderFin();applySumFilter();
