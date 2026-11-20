@@ -377,14 +377,14 @@ function isEmptyData(d){return !d.beam&&!d.shrink&&!d.total&&!d.rpm&&!d.strips&&
 function saveMachine(n,d){
   try{const all=loadAll();
     if(isEmptyData(d))delete all[n];
-    else all[n]={beam:d.beam,shrink:d.shrink,total:d.total,rpm:d.rpm,strips:d.strips,eff:d.eff||"",startStr:d.startStr,recs:d.recs.map(r=>({id:r.id,qty:r.qty,time:new Date(r.time).toISOString()}))};
+    else all[n]={beam:d.beam,shrink:d.shrink,total:d.total,pre:d.pre||"",rpm:d.rpm,strips:d.strips,eff:d.eff||"",startStr:d.startStr,recs:d.recs.map(r=>({id:r.id,qty:r.qty,time:new Date(r.time).toISOString()}))};
     localStorage.setItem("prodMachines",JSON.stringify(all));}catch(e){}
 }
 function loadMachine(n){
   const v=loadAll()[n];
-  if(!v)return {beam:"",shrink:"",total:"",rpm:"",strips:"",eff:"",startStr:toInput(new Date()),recs:[],nextId:1};
+  if(!v)return {beam:"",shrink:"",total:"",pre:"",rpm:"",strips:"",eff:"",startStr:toInput(new Date()),recs:[],nextId:1};
   const recs=(v.recs||[]).map(r=>({id:r.id,qty:r.qty,time:new Date(r.time)}));
-  return {beam:v.beam||"",shrink:v.shrink||"",total:v.total||"",rpm:v.rpm||"",strips:v.strips||"",eff:v.eff||"",startStr:v.startStr||toInput(new Date()),recs:recs,nextId:recs.reduce((a,r)=>Math.max(a,r.id),0)+1};
+  return {beam:v.beam||"",shrink:v.shrink||"",total:v.total||"",pre:v.pre||"",rpm:v.rpm||"",strips:v.strips||"",eff:v.eff||"",startStr:v.startStr||toInput(new Date()),recs:recs,nextId:recs.reduce((a,r)=>Math.max(a,r.id),0)+1};
 }
 //ENDSTORE
 const MACHINES=["1-1","1-2","2-1","2-2","3-1","3-2","5-1","5-2","5-3","5-4","5-5","6-1","6-2","6-3","6-4","6-5","6-6","6-7","6-8"];
@@ -394,7 +394,8 @@ function computeRow(d,cfg){
   const T=parseFloat(d.total),R=parseFloat(d.rpm),S=parseFloat(d.strips),E=parseFloat(d.eff);
   const qtys=d.recs.map(r=>r.qty),done=qtys.reduce((a,b)=>a+b,0);
   const daily=(R>0&&S>0)?R*40/S*(E>0?E/100:1):null;
-  const remain=(d.total!==""&&T>=0)?T-done:null;
+  const pre=parseFloat(d.pre)||0;
+  const remain=(d.total!==""&&T>=0)?T-done-pre:null;
   const hrs=(daily&&remain!==null)?remain/daily*24:null;
   let finish="",finishAt=null;
   if(hrs!==null){ if(hrs<=0)finish="已完工"; else{const f=calcFinish(parseStartM(d.startStr),hrs,cfg);if(f){finish=fmtDT(f);finishAt=f.getTime()}} }
@@ -411,6 +412,8 @@ function App(){
   if(!boot.current){const m=loadMid();boot.current={m:m,d:loadMachine(m)}}
   const I=boot.current.d;
   const [total,setTotal]=useState(I.total);
+  const [pre,setPre]=useState(I.pre||"");
+  const [info,setInfo]=useState("");
   const [beam,setBeam]=useState(I.beam);
   const [shrink,setShrink]=useState(I.shrink);
   const [beamOpen,setBeamOpen]=useState(false);
@@ -443,8 +446,8 @@ function App(){
   const saveSch=()=>{try{localStorage.setItem("prodSchedule",JSON.stringify(sch))}catch(e){}setSavedSch(sch);setSchMsg("已儲存為預設")};
   const resetSch=()=>{try{localStorage.removeItem("prodSchedule")}catch(e){}setSch(DEF_SCH);setSavedSch(DEF_SCH);setSchMsg("已還原為原廠預設")};
   const cfg=cfgOf(sch);
-  const curData={beam,shrink,total,rpm,strips,eff,startStr,recs};
-  useEffect(()=>{saveMachine(mid,curData)},[mid,beam,shrink,total,rpm,strips,eff,startStr,recs]);
+  const curData={beam,shrink,total,pre,rpm,strips,eff,startStr,recs};
+  useEffect(()=>{saveMachine(mid,curData)},[mid,beam,shrink,total,pre,rpm,strips,eff,startStr,recs]);
   useEffect(()=>{saveX(mid,{no:cno,fin:fin,note:nt})},[mid,cno,fin,nt]);
   const used=loadAll();
   const hasData=n=>n===mid?!isEmptyData(curData):!!used[n];
@@ -452,7 +455,7 @@ function App(){
     if(n===mid)return;
     saveMachine(mid,curData);
     const d=loadMachine(n);
-    setMid(n);setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setRecs(d.recs);setCno(initNo(n));setFin((loadX()[n]||{}).fin||"");setNt(initNote(n));
+    setMid(n);setPre(d.pre||"");setInfo("");setBeam(d.beam);setShrink(d.shrink);setTotal(d.total);setRpm(d.rpm);setStrips(d.strips);setEff(d.eff||"");setStartStr(d.startStr);setRecs(d.recs);setCno(initNo(n));setFin((loadX()[n]||{}).fin||"");setNt(initNote(n));
     idRef.current=d.nextId;setCur("");setErr("");
     try{localStorage.setItem("prodCurMachine",String(n))}catch(e){}
   };
@@ -462,6 +465,7 @@ function App(){
     if(!cur||!(n>0)){setErr("請先輸入大於 0 的生產數量。");return}
     const T=parseMD(rd);
     if(!T){setErr("日期格式請輸入 月/日，例如 11/18。");return}
+    if(recs.length===0&&preN>0)setInfo("已扣除盤頭已生產過的 "+fmtN(preN)+" 碼（剩餘數量與完工時間已扣除）");
     setRecs(r=>[...r,{id:idRef.current++,qty:n,time:T}]);
     setRd(mmdd(T));setCur("");setErr("");
   };
@@ -498,7 +502,8 @@ function App(){
   const T=parseFloat(total),R=parseFloat(rpm),S=parseFloat(strips),E=parseFloat(eff);
   const okIn=T>0&&R>0&&S>0;
   const daily=okIn?R*40/S*(E>0?E/100:1):null;
-  const remain=T>=0&&!isNaN(T)&&total!==""?T-done:null;
+  const preN=parseFloat(pre)||0;
+  const remain=T>=0&&!isNaN(T)&&total!==""?T-done-preN:null;
   const hrs=(daily&&remain!==null)?remain/daily*24:null;
   let finish="–";
   const parseStart=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(v||"");return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],0,0):new Date()};
@@ -523,7 +528,7 @@ function App(){
       if(typeof XLSX==="undefined"){setExpMsg("Excel 元件尚未載入，請連網後重新整理再試");return}
       saveMachine(mid,curData);
       const all=loadAll();
-      const list=MACHINES.map(n=>{const d=all[n]||{};const recs=(d.recs||[]).map(r=>({qty:r.qty,time:new Date(r.time)}));return {n:n,d:d,recs:recs,r:computeRow({total:d.total||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:recs},cfg)}});
+      const list=MACHINES.map(n=>{const d=all[n]||{};const recs=(d.recs||[]).map(r=>({qty:r.qty,time:new Date(r.time)}));return {n:n,d:d,recs:recs,r:computeRow({total:d.total||"",pre:d.pre||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:recs},cfg)}});
       const XB=loadX(),FL=loadLog().filter(x=>x.type==="fin"&&!x.x);
       const finOf=n=>FL.filter(x=>x.m===n&&x.fa!==((XB[n]||{}).fin||"")).sort((a,b)=>a.at-b.at);
       const maxRec=Math.max(1,...list.map(x=>x.recs.length),...FL.map(x=>(x.rc||[]).length));
@@ -539,7 +544,7 @@ function App(){
         const has=!!all[x.n];const T=parseFloat(x.d.total);
         const isFin=x.r.finish==="已完工"||!!(XB[x.n]||{}).fin;
         const row=[x.n,has?x.d.rpm||"":"",x.r.daily!==null?Math.round(x.r.daily*100)/100:"",has?x.d.total||"":"",has?x.d.strips||"":"",has?x.d.eff||"":"",has?(x.d.startStr||"").replace("T"," "):""];
-        row.push(x.recs.length?x.r.done:"",(has&&x.d.total!==""&&!isNaN(T))?T-x.r.done:"",x.r.finish,x.recs.length||"",has?(isFin?"完工":"生產中"):"");
+        row.push(x.recs.length?x.r.done:"",(has&&x.d.total!==""&&!isNaN(T))?x.r.remain:"",x.r.finish,x.recs.length||"",has?(isFin?"完工":"生產中"):"");
         for(let i=0;i<maxRec;i++)row.push(x.recs[i]?x.recs[i].qty:"");
         if(isFin)yel.push(rows.length);rows.push(row)});
       const detail=[["機台","第幾筆","數量","記錄時間"]];
@@ -646,6 +651,7 @@ function App(){
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"日期"),h("input",{type:"text",inputMode:"none","data-wheel":"1",value:rd,placeholder:"例如：11/18",style:{width:"100%",minHeight:64,fontSize:24},onChange:e=>setRd(e.target.value)})),
         h("div",{style:{flex:1,minWidth:0}},h("label",{style:{marginTop:0}},"生產數量"),h("div",{className:"disp"},cur===""?"0":cur))),
       h("button",{className:"add wide",style:{marginTop:10},onClick:add},"新增"),
+      preN>0&&h("div",{className:"note",style:{color:"var(--ac)",fontWeight:700}},(info||"盤頭已生產過 "+fmtN(preN)+" 碼（由第二大區連動），剩餘數量已扣除")),
       err&&h("div",{className:"err"},err),
       h("div",{className:"pad"},keys.map(k=>h("button",{key:k,onClick:()=>{
         if(k==="清空"){setCur("");setErr("")}else if(k==="刪除"){setCur(c=>c.slice(0,-1))}else pressKey(k)}},k))),
@@ -696,7 +702,7 @@ function App(){
       h("button",{className:"tog",onClick:()=>setSumOpen(o=>!o)},h("span",null,"所有機台完工時間總表"),h("span",null,sumOpen?"▲":"▼")),
       sumOpen&&(()=>{
         const all=MACHINES.map((n,idx)=>{const d=n===mid?curData:used[n];const has=n===mid?!isEmptyData(curData):!!used[n];
-          return {n:n,idx:idx,has:has,r:(d&&has)?computeRow({total:d.total||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:(d.recs||[])},cfg):null,total:d&&d.total}});
+          return {n:n,idx:idx,has:has,r:(d&&has)?computeRow({total:d.total||"",pre:d.pre||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:(d.recs||[])},cfg):null,total:d&&d.total}});
         const withData=all.filter(x=>x.has);
         const rank=x=>x.r&&x.r.finish==="已完工"?-1:(x.r&&x.r.finishAt!==null?x.r.finishAt:Infinity);
         const rowsS=withData.slice().sort((a,b)=>sumSort==="finish"?(rank(a)-rank(b)||a.idx-b.idx):a.idx-b.idx);
@@ -718,7 +724,7 @@ function App(){
     h("div",{className:"card"},
       h("button",{className:"tog",onClick:()=>setTblOpen(o=>!o)},h("span",null,"各機台儲存資料表"),h("span",null,tblOpen?"▲":"▼")),
       tblOpen&&(()=>{
-        const rows=MACHINES.map(n=>{const d=n===mid?curData:used[n];return {n:n,r:d?computeRow({total:d.total||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:(d.recs||[])},cfg):null}});
+        const rows=MACHINES.map(n=>{const d=n===mid?curData:used[n];return {n:n,r:d?computeRow({total:d.total||"",pre:d.pre||"",rpm:d.rpm||"",strips:d.strips||"",eff:d.eff||"",startStr:d.startStr,recs:(d.recs||[])},cfg):null}});
         const cols=Math.max(10,...rows.map(x=>x.r?x.r.qtys.length:0));
         const colsArr=Array.from({length:cols},(_,i)=>i);
         return h("div",{className:"tbl"},h("table",null,
@@ -765,7 +771,7 @@ const subB=()=>({id:null,no:'',qty:'',shr:'',yarns:[yarnB()],coils:[],cdraft:coi
 const madeB=()=>({d:today(),q:''});
 const draftB=()=>({d:today(),n:'',b:'',q:''});
 const stockB=(n,b)=>({d:today(),n:n||'',b:b||'',q:''});
-const machB=()=>({no:'',coilNo:'',src:'',len:'',shr:'',rpm:'',pit:'',start:'',yarns:[yarnB()],pulls:[],mades:[],draft:draftB(),pdraft:draftB(),stocks:[],sdraft:draftB(),runs:[],sig:'',savedAt:0});
+const machB=()=>({no:'',coilNo:'',src:'',len:'',shr:'',pre:'',rpm:'',pit:'',start:'',yarns:[yarnB()],pulls:[],mades:[],draft:draftB(),pdraft:draftB(),stocks:[],sdraft:draftB(),runs:[],sig:'',savedAt:0});
 let st={cur:subB(),orders:[],mach:{},sel:'1-1'};
 
 function load(){
@@ -799,6 +805,7 @@ function load(){
     m.mades.forEach(x=>{x.n='';x.b=''});
     if(!m.draft)m.draft=draftB();if(!m.pdraft)m.pdraft=draftB();if(!m.sdraft)m.sdraft=draftB();
     [m.draft,m.pdraft,m.sdraft].forEach(x=>{if(x.n===undefined)x.n='';if(x.b===undefined)x.b=''});
+    if(m.pre===undefined)m.pre='';
     if(m.sig===undefined)m.sig='';if(m.savedAt===undefined)m.savedAt=0;
     if(!Array.isArray(m.stocks))m.stocks=[];
     m.stocks=m.stocks.filter(x=>x&&num(x.q)>0);
@@ -1066,7 +1073,8 @@ function finishCalc(m,qty){
   const rpm=num(m.rpm),pit=num(m.pit);
   if(qty===null||qty<=0||rpm===null||rpm<=0||pit===null||pit<=0||!m.start)return null;
   const t0=new Date(String(m.start).length<=10?m.start+'T08:00':m.start);if(isNaN(t0.getTime()))return null;
-  const daily=rpm*40/pit,days=qty/daily;
+  const rem=qty-(num(m.pre)||0);          // 盤頭已生產過的數量要先扣除
+  const daily=rpm*40/pit,days=Math.max(0,rem)/daily;
   return {daily,days,end:addRun(t0,days*86400000)};
 }
 const remOf=(pull,need)=>pull>0?pull-need:null;
@@ -1223,7 +1231,7 @@ function saveOrder(){
 }
 
 /* ---------- 第二大區：機台設定 ---------- */
-function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
+function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,m.pre,m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
 const hm=t=>{const d=new Date(t);return p2(d.getHours())+':'+p2(d.getMinutes())};
 function mmark(id){const m=st.mach[id];return hasData(m)?(m.sig===sigOf(m)?' ●':' ○'):(m.sig?' ○':'')}
 const hasData=m=>!!(m.no.trim()||m.len||m.start||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
@@ -1286,6 +1294,7 @@ function panelHTML(id){
     '<div class="sh" style="margin-top:0;border-top:0;padding-top:0">01｜生產設定</div>'+
     '<div class="eq">'+srcSel+inp(a,'no','布號',m.no,{w:1,up:1})+inp(a,'coilNo','盤頭號',m.coilNo,{up:1})+'</div>'+
     '<div class="eq">'+inp(a,'len','盤頭長 (碼)',m.len,{n:1})+'<span class="op">×</span>'+inp(a,'shr','織縮 (%)',m.shr,{n:1})+'<span class="op">=</span>'+out('成品數量 (碼)','qty')+'</div>'+
+    '<div class="eq">'+inp(a,'pre','盤頭已生產過數量 (碼)（沒有就留空）',m.pre,{n:1})+out('尚需生產 (碼)','remq')+'</div>'+
     '<div class="sh">02｜開機與預估完工</div><div>'+
     '<div class="eq">'+inp(a,'start','開機時間',m.start,{dt:1})+inp(a,'rpm','轉速',m.rpm,{n:1})+inp(a,'pit','緯密 (T)',m.pit,{n:1})+'</div>'+
     '<div class="eq">'+out('日產量 (碼/天)','daily')+out('所需天數','days')+'<label class="w">預估完工時間<div class="val"><span data-o="fin">—</span></div></label></div></div>'+
@@ -1416,7 +1425,7 @@ function update(){
   if(qo){
     const m=st.mach[st.sel],c=mcalc(m);
     const setp=(o,t)=>{const e=pn.querySelector('[data-o="'+o+'"]');if(e)e.textContent=t};
-    setp('qty',fmt(c.qty));
+    setp('qty',fmt(c.qty));setp('remq',c.qty===null?'—':fmt(Math.max(0,c.qty-(num(m.pre)||0))));
     c.rowNeed.forEach((x,j)=>setp('yn'+j,(x.need||x.has)?fmt(x.need):'—'));
     const wbox=pn.querySelector('[data-o="warn"]'),ws=warnFrom(c);
     if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg）</span>').join('')+'</div>':'';
@@ -1797,7 +1806,7 @@ const Link={
     const oldRecs=(old&&old.recs)||[],q=this.qtyOf(m);
     let next=Math.max(0,...oldRecs.map(r=>+r.id||0),...m.mades.map(x=>+x.cid||0))+1;
     const recs=m.mades.map(x=>{if(!x.cid)x.cid=next++;return {id:x.cid,qty:num(x.q)||0,time:new Date(this.tOf(x)).toISOString()}});
-    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
+    const o={beam:m.len||'',shrink:m.shr||'',total:q!==null?String(q):((old&&old.total)||''),pre:m.pre||'',rpm:m.rpm||'',strips:m.pit||'',eff:(old&&old.eff)||'',startStr:(m.start&&String(m.start).includes('T'))?m.start:((old&&old.startStr)||this.nowStr()),recs};
     if(old&&JSON.stringify(old)===JSON.stringify(o))return false;
     all[id]=o;return true;
   },
