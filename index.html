@@ -966,7 +966,7 @@ function mcalc(m,noRuns){
   return {qty,rowNeed,ys,made,need:T('need'),pull:T('pull'),used:T('used'),stock:T('stock')};
 }
 function ystat(x){
-  const rem=x.need>0?x.need-x.stock-x.pull:null;               // 剩餘未領 = 所需 − 前期庫存 − 領用
+  const rem=x.need>0?(x.now?x.need-x.pull:x.need-x.stock-x.pull):null;               // 剩餘未領 = 所需 − 前期庫存 − 領用
   const left=x.used>0?x.pull+x.stock-x.used:null;               // 應餘 = 領用 + 庫存 − 已用
   const diff=(x.stock>0&&left!==null)?x.stock-left:null;        // 差異 = 庫存 − 應餘
   const act=(x.made>0&&x.pull>0)?(x.pull-x.stock)/x.made:null;      // 實際用紗量 = (領用 − 庫存) ÷ 已生產碼數
@@ -978,7 +978,7 @@ const warnMsg=w=>w.ratio===null?'尚未領紗，請盡快領紗':(w.ratio>=1?'�
 const nc=(v,red,grn)=>'<td class="n'+(red?' neg':grn?' pos':'')+'">'+fmt(v)+'</td>';
 function statRow(name,x){
   const t=ystat(x);
-  return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc(x.stock||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)>0,t.rem!==null&&r4(t.rem)<=0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
+  return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc((x.now?x.prev:x.stock)||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)>0,t.rem!==null&&r4(t.rem)<=0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
 }
 function plainList(list,id,act,qLabel){
   if(!list.length)return '<div class="empty">尚無記錄</div>';
@@ -1094,7 +1094,7 @@ function finishCalc(m,qty){
   const daily=rpm*40/pit,days=Math.max(0,rem)/daily;
   return {daily,days,end:addRun(t0,days*86400000)};
 }
-const remOf=(pull,need,stock)=>need>0?need-(stock||0)-pull:null;
+const remOf=(pull,need)=>need>0?need-pull:null;       // 剩餘未領 = 所需 − 領用（前期庫存來自 FIN，不在此扣除）
 const remCell=(pull,need,stock)=>{const v=remOf(pull,need,stock);return '<td class="n'+(v!==null&&r4(v)>0?' neg':'')+'">'+fmt(v)+'</td>'};
 const lab=(n,b)=>(n+' '+b).trim();
 const machStr=mm=>Object.keys(mm).map(id=>id+'（'+fmt(mm[id])+'）').join('、');
@@ -1446,7 +1446,7 @@ function update(){
     setp('qty',fmt(c.qty));setp('preo',machPre(m)>0?fmt(machPre(m)):'—');setp('remq',c.qty===null?'—':fmt(Math.max(0,c.qty-machPre(m))));
     c.rowNeed.forEach((x,j)=>setp('yn'+j,(x.need||x.has)?fmt(x.need):'—'));
     const wbox=pn.querySelector('[data-o="warn"]'),ws=warnFrom(c);
-    if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg）</span>').join('')+'</div>':'';
+    if(wbox)wbox.innerHTML=ws.length?'<div class="alert">⚠ 需再領紗'+ws.map(w=>'<span class="ln">'+esc(lab(w.n,w.b)||'（未填品代）')+'：'+warnMsg(w)+'（已用 '+fmt(w.used)+' kg ／ 領用 '+fmt(w.pull||null)+' kg　'+(()=>{const d=r4((w.pull||0)-w.used);return '<b class="'+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'−')+fmt(Math.abs(d))+' kg</b>'})()+'）</span>').join('')+'</div>':'';
     const sl=pn.querySelector('[data-o="slist"]');if(sl&&!sl.contains(document.activeElement))sl.innerHTML=stockList(m.stocks,st.sel);
     const pl=pn.querySelector('[data-o="plist"]');if(pl&&!pl.contains(document.activeElement))pl.innerHTML=groupList(m.pulls,st.sel,'rmPull','領用數量 (kg)');
     const ml=pn.querySelector('[data-o="mlist"]');if(ml)ml.innerHTML=madeList(m.mades,st.sel);
@@ -1471,8 +1471,11 @@ function update(){
     let vy=c.ys.filter(x=>(x.cur||x.rm)&&(x.need||x.pull||x.used||x.stock));
     if(!c.ys.some(x=>x.cur))vy=c.ys.filter(x=>x.need||x.pull||x.used||x.stock);
     const sm=f=>vy.reduce((a,x)=>a+(x[f]||0),0);
+    const fb0=finBlock(m,st.sel),prevMap=new Map();           // 前期庫存 = FIN（上一組布）留下的應餘；NOW 不扣除
+    if(fb0)fb0.rows.forEach(r=>{const l=ystat(r).left;if(l!==null&&l>0)prevMap.set(kk(r.n,r.b),l)});
+    vy.forEach(x=>{x.now=true;x.prev=prevMap.get(kk(x.n,x.b))||0});
     pn.querySelector('[data-o="ytab"]').innerHTML=vy.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join('');
-    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{need:sm('need'),pull:sm('pull'),used:sm('used'),stock:sm('stock'),made:0});
+    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{now:true,need:sm('need'),prev:sm('prev'),pull:sm('pull'),used:sm('used'),stock:sm('stock'),made:0});
     const nn=pn.querySelector('[data-o="nowNo"]');if(nn)nn.textContent=m.no.trim()?'布號 '+m.no.trim():'（尚未填布號）';
     const fb=finBlock(m,st.sel),ft=pn.querySelector('[data-o="ftab"]'),ff=pn.querySelector('[data-o="ffoot"]'),fnn=pn.querySelector('[data-o="finNo"]');
     if(ft){
