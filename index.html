@@ -2041,24 +2041,25 @@ document.addEventListener('focusout',e=>{
 const Kpd={el:null,inp:null,ex:'',fresh:true,
   build(){
     const e=document.createElement('div');e.className='dkp';e.id='kpd';
-    const KS=[['⌫','kfn'],['C','kfn'],['X','kfn'],['÷','kop'],['7',''],['8',''],['9',''],['×','kop'],['4',''],['5',''],['6',''],['−','kop'],['1',''],['2',''],['3',''],['+','kop'],['0',''],['.',''],['=','kop'],['OK','kok']];
-    const LB={'C':'清空','X':'取消','OK':'完成'};
-    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kg2">'+KS.map(x=>'<button type="button" class="'+x[1]+'" data-k="'+x[0]+'">'+(LB[x[0]]||x[0])+'</button>').join('')+'</div>';
+    const OPS=['(',')','÷','×','−','+'],NUM=['1','2','3','4','5','6','7','8','9','.','0','⌫'];
+    const LB={'C':'清空','X':'取消','OK':'完成','⌫':'刪除'};
+    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kg2 kg6">'+OPS.map(k=>'<button type="button" class="'+('()'.includes(k)?'kfn':'kop')+'" data-k="'+k+'">'+k+'</button>').join('')+'</div><div class="kg2 kg3">'+NUM.map(k=>'<button type="button" data-k="'+k+'">'+(LB[k]||k)+'</button>').join('')+'</div><div class="kg2 kg3" style="margin-top:10px"><button type="button" class="kfn" data-k="X">取消</button><button type="button" class="kfn" data-k="C">清空</button><button type="button" class="kok" data-k="OK">完成</button></div>';
     e.addEventListener('mousedown',ev=>ev.preventDefault());
     e.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b)this.press(b.dataset.k)});
     document.body.appendChild(e);this.el=e;
   },
   val(){
     let t=this.ex.replace(/[+×÷−]+$/,'');if(!t)return null;
-    if(!/^[0-9.+×÷−]+$/.test(t))return null;
+    if(!/^[0-9.+×÷−()]+$/.test(t))return null;
+    {const o=(t.match(/\(/g)||[]).length,c=(t.match(/\)/g)||[]).length;if(c>o)return null;t+=')'.repeat(o-c)}
     try{const r=Function('"use strict";return ('+t.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-')+')')();
       return isFinite(r)?Math.round(r*1000)/1000:null}catch(e){return null}
   },
   show(){$('kex').textContent=this.ex||'0';const v=this.val();$('kres').textContent=(v===null||/^[0-9.]*$/.test(this.ex))?'':'= '+v},
   open(i){
     if(!this.el)this.build();this.inp=i;this.ex=(i.value||'').trim();this.fresh=true;
-    this.el.style.display='block';document.body.style.paddingBottom='400px';this.show();
-    revealInp(i,390);
+    this.el.style.display='block';document.body.style.paddingBottom='440px';this.show();
+    revealInp(i,430);
   },
   press(k){
     if(k==='X'){this.close();return}
@@ -2067,9 +2068,10 @@ const Kpd={el:null,inp:null,ex:'',fresh:true,
     if(k==='='){const v=this.val();if(v!==null){this.ex=String(v);this.fresh=false;this.show()}return}
     if(k==='⌫'){this.ex=this.fresh?'':this.ex.slice(0,-1);this.fresh=false;this.show();return}
     const op='÷×−+'.includes(k);
+    if(k==='('||k===')'){if(this.fresh)this.ex='';this.fresh=false;if(k===')'&&!/[0-9.)]$/.test(this.ex))return;this.ex+=k;this.show();return}
     if(this.fresh&&!op)this.ex='';
     this.fresh=false;
-    if(op){if(!this.ex)return;if(/[+×÷−]$/.test(this.ex))this.ex=this.ex.slice(0,-1)}
+    if(op){if(!this.ex||/\($/.test(this.ex))return;if(/[+×÷−]$/.test(this.ex))this.ex=this.ex.slice(0,-1)}
     this.ex+=k;this.show();
   },
   apply(){
