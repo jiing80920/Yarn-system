@@ -774,7 +774,7 @@ const subB=()=>({id:null,no:'',qty:'',shr:'',yarns:[yarnB()],coils:[],cdraft:coi
 const madeB=()=>({d:today(),q:''});
 const draftB=()=>({d:today(),n:'',b:'',q:''});
 const stockB=(n,b)=>({d:today(),n:n||'',b:b||'',q:''});
-const machB=()=>({no:'',coilNo:'',src:'',len:'',shr:'',pre:'',rpm:'',pit:'',start:'',yarns:[yarnB()],pulls:[],mades:[],draft:draftB(),pdraft:draftB(),stocks:[],sdraft:draftB(),runs:[],sig:'',savedAt:0});
+const machB=()=>({no:'',coilNo:'',src:'',len:'',shr:'',pre:'',rpm:'',pit:'',start:'',yarns:[yarnB()],pulls:[],mades:[],draft:draftB(),pdraft:draftB(),bdraft:draftB(),backMade:'',stocks:[],sdraft:draftB(),runs:[],sig:'',savedAt:0});
 let st={cur:subB(),orders:[],mach:{},sel:'1-1'};
 
 function load(){
@@ -806,8 +806,8 @@ function load(){
     m.runs.forEach(r=>{if(!Array.isArray(r.mades))r.mades=[];if(!Array.isArray(r.yarns))r.yarns=[]});
     m.mades=m.mades.filter(x=>x&&num(x.q)>0);
     m.mades.forEach(x=>{x.n='';x.b=''});
-    if(!m.draft)m.draft=draftB();if(!m.pdraft)m.pdraft=draftB();if(!m.sdraft)m.sdraft=draftB();
-    [m.draft,m.pdraft,m.sdraft].forEach(x=>{if(x.n===undefined)x.n='';if(x.b===undefined)x.b=''});
+    if(!m.draft)m.draft=draftB();if(!m.pdraft)m.pdraft=draftB();if(!m.sdraft)m.sdraft=draftB();if(!m.bdraft)m.bdraft=draftB();if(m.backMade===undefined)m.backMade='';
+    [m.draft,m.pdraft,m.sdraft,m.bdraft].forEach(x=>{if(x.n===undefined)x.n='';if(x.b===undefined)x.b=''});
     if(m.pre===undefined)m.pre='';
     if(m.sig===undefined)m.sig='';if(m.savedAt===undefined)m.savedAt=0;
     if(!Array.isArray(m.stocks))m.stocks=[];
@@ -818,7 +818,7 @@ function load(){
   });
   const U=o=>{['no','n','b'].forEach(k=>{if(typeof o[k]==='string')o[k]=o[k].toUpperCase()})};
   [st.cur].concat(st.orders).forEach(o=>{U(o);o.yarns.forEach(U)});
-  IDS.forEach(id=>{const m=st.mach[id];U(m);m.yarns.forEach(U);m.pulls.forEach(U);m.stocks.forEach(U);m.mades.forEach(U);U(m.draft);U(m.pdraft);U(m.sdraft)});
+  IDS.forEach(id=>{const m=st.mach[id];U(m);m.yarns.forEach(U);m.pulls.forEach(U);m.stocks.forEach(U);m.mades.forEach(U);U(m.draft);U(m.pdraft);U(m.sdraft);U(m.bdraft)});
   IDS.forEach(id=>{const m=st.mach[id];if(num(m.pre)>0){       // 舊資料：機台上的已生產過數量搬到第一大區對應盤頭
     let c=null;if(m.src&&m.src.indexOf('|')>0){const o=st.orders.find(x=>x.id===m.src.split('|')[0]);if(o)c=o.coils.find(x=>x.u===m.src.split('|')[1])}
     if(c){if(!(num(c.pre)>0))c.pre=m.pre;m.pre=''}}});
@@ -945,11 +945,12 @@ function mcalc(m,noRuns){
   const qty=len!==null?Math.round(len*(1-(shr||0)/100)):null;
   const rq=qty!==null?Math.max(0,qty-machPre(m)):null;           // 尚需生產 (碼)：用紗量依此計算
   const made=sum(m.mades.map(x=>num(x.q)||0));
+  const bm=num(m.backMade)||0;                    // 回溯：前面盤頭已織碼數
   const map=new Map();
   const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,pull:0,used:0,stock:0,rm:0,cur:false};map.set(k,e)}return e};
   const rowNeed=EY.map(y=>{
     const wy=num(y.wy),need=(rq!==null&&wy!==null)?rq*wy:0,e=get(y.n,y.b);
-    e.need+=need;e.used+=wy!==null?made*wy:0;e.cur=true;
+    e.need+=need;e.used+=wy!==null?(made+bm)*wy:0;e.cur=true;
     return {need,has:wy!==null};
   });
   if(!noRuns)(m.runs||[]).forEach(r=>{const rm=runMade(r);(r.yarns||[]).forEach(y=>{const wy=num(y.wy);if(wy===null||!rm)return;const e=get(y.n,y.b);e.need+=rm*wy;e.used+=rm*wy;e.rm+=rm})});
@@ -1017,12 +1018,12 @@ function doSwitch(id,o){
     yarns:JSON.parse(JSON.stringify(m.yarns)),mades:m.mades.map(x=>({d:x.d,q:x.q,t:x.t})),qty:mcalc(m,true).qty};
   (m.runs=m.runs||[]).push(snap);
   try{const L=JSON.parse(localStorage.getItem('prodLog')||'[]');L.push({u:'sw'+Date.now().toString(36),type:'switch',m:id,no:m.coilNo||'',fab:(snap.no||'—')+' → '+o.no,len:m.len,qty:runMade(snap),at:Date.now()});localStorage.setItem('prodLog',JSON.stringify(L))}catch(e){}
-  m.no=o.no;m.len=String(Math.round(o.rem));m.shr='0';m.rpm=o.rpm;m.pit=o.pit;m.start=o.time;m.mades=[];m.fin='';m.src='';m.pre='';
+  m.no=o.no;m.len=String(Math.round(o.rem));m.shr='0';m.rpm=o.rpm;m.pit=o.pit;m.start=o.time;m.mades=[];m.fin='';m.src='';m.pre='';m.backMade='';
   if(o.yarns)m.yarns=o.yarns.map(y=>({n:y.n,b:y.b,wy:y.wy}));
   m.draft=draftB();
   try{const X=JSON.parse(localStorage.getItem('prodExtra')||'{}')||{};X[id]=Object.assign({},X[id],{fin:''});localStorage.setItem('prodExtra',JSON.stringify(X))}catch(e){}
 }
-let recOpen=false;const fold={cmp:false,s2:false,pull:false,mused:false,stock:false,runs:false};
+let recOpen=false;const fold={cmp:false,s2:false,back:false,pull:false,mused:false,stock:false,runs:false};
 function madeList(list,id){
   const done=sum(list.map(x=>num(x.q)||0));
   let h='<div class="sgrid"><div class="sbox"><span>累計已生產數量 (碼)</span><b>'+fmt(done)+'</b></div><div class="sbox"><span>生產記錄筆數</span><b>'+list.length+'</b></div></div>';
@@ -1249,7 +1250,7 @@ function saveOrder(){
 }
 
 /* ---------- 第二大區：機台設定 ---------- */
-function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,machPre(m),m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
+function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,machPre(m),m.backMade,m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
 const hm=t=>{const d=new Date(t);return p2(d.getHours())+':'+p2(d.getMinutes())};
 function mmark(id){const m=st.mach[id];return hasData(m)?(m.sig===sigOf(m)?' ●':' ○'):(m.sig?' ○':'')}
 const hasData=m=>!!(m.no.trim()||m.len||m.start||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
@@ -1299,13 +1300,13 @@ function panelHTML(id){
   const selB=(ad,n,v)=>'<label>批號<select '+ad+' data-f="b"><option value="">— 選擇 —</option>'+optsOf(machBatches(m,n),v)+'</select></label>';
   const nb=(ad,r)=>useSel?selN(ad,r.n)+selB(ad,r.n,r.b):inp(ad,'n','品代',r.n,{list:'dlName',up:1})+inp(ad,'b','批號',r.b,{list:'dlBatch',up:1});
   const fillD=d=>{if(!useSel)return;const ok=pairs.some(p=>kk(p.n,p.b)===kk((d.n||'').trim(),(d.b||'').trim()));if(!ok){d.n=pairs[0].n;d.b=pairs[0].b}};      // 自動帶入設定的紗種（設定變動時一併更新）
-  fillD(m.pdraft);fillD(m.sdraft);
+  fillD(m.pdraft);fillD(m.sdraft);fillD(m.bdraft);
   const srcSel=sc.length?'<label class="w">排定託工單<select id="srcSel"><option value="">— 手動輸入 —</option>'+sc.map(x=>'<option value="'+esc(x.key)+'"'+(m.src===x.key?' selected':'')+'>'+esc(x.text)+'</option>').join('')+'</select></label>':'';
   const ys=m.yarns.map((y,j)=>{const b=A('mach',id,'yarns',j);
     return '<div class="rw y">'+inp(b,'n','品代',y.n,{list:'dlName',up:1})+inp(b,'b','批號',y.b,{list:'dlBatch',up:1})+inp(b,'wy','每碼用紗量 (kg)',y.wy,{n:1})+out('用紗量 (kg)','yn'+j)+xbtn('rmYarn','data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
   const rows4=(list,l,qLabel,act)=>list.map((p,j)=>{const b=A('mach',id,l,j);
     return '<div class="rw p4">'+inp(b,'d','日期',p.d,{date:1})+nb(b,p)+inp(b,'q',qLabel,p.q,{n:1})+xbtn(act,'data-id="'+id+'" data-j="'+j+'"')+'</div>'}).join('');
-  const Ad=A('mach',id,'draft',0),Ap=A('mach',id,'pdraft',0),As=A('mach',id,'sdraft',0);
+  const Ad=A('mach',id,'draft',0),Ap=A('mach',id,'pdraft',0),As=A('mach',id,'sdraft',0),Ab=A('mach',id,'bdraft',0);
   const drow=(ad,dr,ql,add,clr,calc)=>'<div class="rw drow">'+nb(ad,dr)+inp(ad,'d','日期',dr.d,{date:1,dq:1})+inp(ad,'q',ql,dr.q,{n:1,calc:calc})+
     '<button class="p" type="button" data-act="'+add+'" data-id="'+id+'">新增</button><button type="button" data-act="'+clr+'" data-id="'+id+'">清除</button></div>';
   return '<div class="card"><div class="card-h"><b>機台 #'+id+'</b><span class="hb"><span class="stat" id="mstat"></span><button class="p" type="button" data-act="saveMach" data-id="'+id+'" id="mSave">儲存</button></span></div><div data-o="warn"></div>'+
@@ -1320,6 +1321,10 @@ function panelHTML(id){
     '<button class="add" type="button" data-act="tg" data-k="pull" style="margin:6px 0;text-align:left">'+(fold.pull?'▲':'▼')+' A｜領紗記錄</button>'+
     '<div style="display:'+(fold.pull?'block':'none')+'">'+drow(Ap,m.pdraft,'領用數量 (kg)','addPull','clrPull')+
     '<div class="sh2">累計領用 (kg)（只留目前布號這一組）</div><div data-o="plist"></div><button class="add" type="button" data-act="clrAllPull" data-id="'+id+'" style="margin:6px 0">清除全部領紗記錄</button></div>'+
+    '<button class="add" type="button" data-act="tg" data-k="back" style="margin:6px 0;text-align:left">'+(fold.back?'▲':'▼')+' A2｜回溯補錄（前面盤頭沒有領紗記錄時使用）</button>'+
+    '<div style="display:'+(fold.back?'block':'none')+'"><div class="note2" style="margin:0 0 6px">① 補錄過去的領紗：選過去的日期、品代批號與領用量，會併入上方累計領用。<br>② 前面盤頭已織碼數：依每碼用紗量補算已用紗量（已用、應餘會一併調整）。</div>'+
+    drow(Ab,m.bdraft,'補錄領用數量 (kg)','addBack','clrBack')+
+    '<div class="eq">'+inp(a,'backMade','前面盤頭已織數量 (碼)（沒有就留空）',m.backMade,{n:1})+'</div></div>'+
     '<div class="sh2">B｜已生產數量記錄（連動第三大區，僅顯示明細；請在第三大區輸入）</div>'+
     '<div data-o="mlist"></div>'+
     '<button class="add" type="button" data-act="openSw" data-id="'+id+'" style="margin:8px 0;font-weight:700">⇄ 換布號（同一盤頭，接著生產下一個布號）</button>'+
@@ -1455,7 +1460,7 @@ function update(){
     if(mu){
       const yr=effYarns(m).filter(y=>y.n.trim()||y.b.trim()||num(y.wy)!==null);
       mu.innerHTML=yr.length?'<table><thead><tr><th>品代 批號</th><th class="n">每碼用量</th><th class="n">累計生產</th><th class="n">已用量</th></tr></thead><tbody>'+
-        yr.map(y=>{const wy=num(y.wy);return '<tr><td>'+esc(lab(y.n,y.b)||'（未填品代）')+'</td><td class="n">'+fmt(wy)+'</td><td class="n">'+fmt(c.made||null)+'</td><td class="n"><b>'+fmt(wy!==null&&c.made?c.made*wy:null)+'</b></td></tr>'}).join('')+
+        yr.map(y=>{const wy=num(y.wy);return '<tr><td>'+esc(lab(y.n,y.b)||'（未填品代）')+'</td><td class="n">'+fmt(wy)+'</td><td class="n">'+fmt(((c.made||0)+(num(m.backMade)||0))||null)+'</td><td class="n"><b>'+fmt(wy!==null&&((c.made||0)+(num(m.backMade)||0))?((c.made||0)+(num(m.backMade)||0))*wy:null)+'</b></td></tr>'}).join('')+
         '</tbody></table>':'<div class="empty">請先在機台填入布號（需有同布號的託工單，並填寫紗種與每碼用紗量）</div>';
     }
     const sg=sigOf(m),dirty=m.sig!==sg,has=hasData(m),ms=$('mstat'),mb=$('mSave');
@@ -1508,6 +1513,7 @@ function targetObj(t){
   if(t.dataset.l==='draft')return o.draft;
   if(t.dataset.l==='pdraft')return o.pdraft;
   if(t.dataset.l==='sdraft')return o.sdraft;
+  if(t.dataset.l==='bdraft')return o.bdraft;
   if(t.dataset.l)o=o[t.dataset.l][+t.dataset.j];
   return o;
 }
@@ -1614,16 +1620,16 @@ function stockList(list,id){
   return h+'</tbody><tfoot><tr><td>合計</td><td class="n">'+fmt(total)+'</td><td class="n">共 '+list.length+' 種</td></tr></tfoot></table>';
 }
 function addRec(kind){
-  const M=st.mach[st.sel],made=kind==='made',stock=kind==='stock';
-  const dr=made?M.draft:stock?M.sdraft:M.pdraft,list=made?M.mades:stock?M.stocks:M.pulls,q=num(dr.q);
+  const M=st.mach[st.sel],made=kind==='made',stock=kind==='stock',back=kind==='back';
+  const dr=made?M.draft:stock?M.sdraft:back?M.bdraft:M.pdraft,list=made?M.mades:stock?M.stocks:M.pulls,q=num(dr.q);
   if(!(q>0)){alert(made?'請輸入已產數量 (碼)':stock?'請輸入庫存量 (kg)':'請輸入領用數量 (kg)');return}
   const d=dr.d||today();
-  const rec={d,n:made?'':dr.n,b:made?'':dr.b,q:String(q)};
+  const rec={d,n:made?'':dr.n,b:made?'':dr.b,q:String(q)};if(back)rec.back=true;
   if(made)rec.t=(d===today())?Date.now():Date.parse(d+'T12:00:00');   // 記錄時間跟著所選日期，連動到計算機
   const ex=stock?list.find(x=>kk(x.n,x.b)===kk(rec.n,rec.b)):null;
   if(ex){ex.q=rec.q;ex.d=rec.d}else list.push(rec);
   dr.q='';save();renderMach();
-  const key=made?'draft':stock?'sdraft':'pdraft';
+  const key=made?'draft':stock?'sdraft':back?'bdraft':'pdraft';
   setTimeout(()=>{const e=document.querySelector('#panel [data-l="'+key+'"][data-f="q"]');if(e)e.focus()},0);
 }
 function delWhole(o){
@@ -1768,6 +1774,8 @@ document.addEventListener('click',e=>{
     case 'rmMade':M.mades.splice(j,1);break;
     case 'saveMach':M.sig=sigOf(M);M.savedAt=Date.now();save();update();toast('已儲存 機台 #'+id);return;
     case 'addStock':addRec('stock');return;
+    case 'addBack':addRec('back');return;
+    case 'clrBack':M.bdraft=draftB();save();renderMach();return;
     case 'clrStock':M.sdraft=draftB();save();renderMach();return;
     case 'rmStock':M.stocks.splice(j,1);break;
     default:return;
