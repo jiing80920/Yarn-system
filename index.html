@@ -1253,7 +1253,7 @@ function saveOrder(){
 function sigOf(m){return JSON.stringify([m.no,m.coilNo,m.src,m.len,m.shr,machPre(m),m.backMade,m.rpm,m.pit,m.start,m.yarns,m.pulls,m.mades.map(x=>{const r=Object.assign({},x);delete r.cid;return r}),m.stocks,m.runs])}
 const hm=t=>{const d=new Date(t);return p2(d.getHours())+':'+p2(d.getMinutes())};
 function mmark(id){const m=st.mach[id];return hasData(m)?(m.sig===sigOf(m)?' ●':' ○'):(m.sig?' ○':'')}
-const hasData=m=>!!(m.no.trim()||m.len||m.start||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
+const hasData=m=>!!(m.no.trim()||m.len||m.start||num(m.backMade)>0||m.yarns.some(y=>y.n.trim()||y.b.trim()||y.wy)||m.pulls.some(p=>p.q)||m.mades.some(x=>x.q)||m.stocks.some(x=>x.q));
 function renderChips(){
   $('chips').innerHTML='<label>機台<select id="machSel">'+machOpts(st.sel,true)+'</select></label>';
 }
