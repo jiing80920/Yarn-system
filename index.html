@@ -2043,7 +2043,13 @@ const Kpd={el:null,inp:null,ex:'',fresh:true,
     const e=document.createElement('div');e.className='dkp';e.id='kpd';
     const OPS=['(',')','÷','×','−','+'],NUM=['1','2','3','4','5','6','7','8','9','.','0','⌫'];
     const LB={'C':'清空','X':'取消','OK':'完成','⌫':'刪除'};
-    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div><div class="kg2 kg6">'+OPS.map(k=>'<button type="button" class="'+('()'.includes(k)?'kfn':'kop')+'" data-k="'+k+'">'+k+'</button>').join('')+'</div><div class="kg2 kg3">'+NUM.map(k=>'<button type="button" data-k="'+k+'">'+(LB[k]||k)+'</button>').join('')+'</div><div class="kg2 kg3" style="margin-top:10px"><button type="button" class="kfn" data-k="X">取消</button><button type="button" class="kfn" data-k="C">清空</button><button type="button" class="kok" data-k="OK">完成</button></div>';
+    const GS=n=>'display:grid;grid-template-columns:repeat('+n+',minmax(0,1fr));gap:8px;width:100%;box-sizing:border-box';
+    const BS=(bg,fg,fs)=>'width:100%;min-width:0;height:52px;margin:0;padding:0;box-sizing:border-box;border-radius:14px;font-size:'+fs+';font-weight:600;-webkit-appearance:none;appearance:none;'+(bg?'background:'+bg+';border:1px solid transparent;':'')+(fg?'color:'+fg+';':'');
+    const OR='#e8963a',GR='rgba(127,127,127,.28)';
+    e.innerHTML='<div class="kdisp"><span id="kex"></span><b id="kres"></b></div>'+
+      '<div style="'+GS(6)+';margin-bottom:8px">'+OPS.map(k=>'<button type="button" data-k="'+k+'" style="'+('()'.includes(k)?BS(GR,'','1.3rem'):BS(OR,'#fff','1.6rem'))+'">'+k+'</button>').join('')+'</div>'+
+      '<div style="'+GS(3)+'">'+NUM.map(k=>'<button type="button" data-k="'+k+'" style="'+BS('','','1.35rem')+'">'+(LB[k]||k)+'</button>').join('')+'</div>'+
+      '<div style="'+GS(3)+';margin-top:10px"><button type="button" data-k="X" style="'+BS(GR,'','1.05rem')+'">取消</button><button type="button" data-k="C" style="'+BS(GR,'','1.05rem')+'">清空</button><button type="button" data-k="OK" style="'+BS('var(--accent)','var(--accent-t)','1.05rem')+'">完成</button></div>';
     e.addEventListener('mousedown',ev=>ev.preventDefault());
     e.addEventListener('click',ev=>{const b=ev.target.closest('button');if(b)this.press(b.dataset.k)});
     document.body.appendChild(e);this.el=e;
