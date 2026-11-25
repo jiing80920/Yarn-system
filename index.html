@@ -947,13 +947,14 @@ function mcalc(m,noRuns){
   const made=sum(m.mades.map(x=>num(x.q)||0));
   const bm=num(m.backMade)||0;                    // 回溯：前面盤頭已織碼數
   const map=new Map();
-  const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,pull:0,used:0,stock:0,rm:0,cur:false};map.set(k,e)}return e};
+  const get=(n,b)=>{const k=kk(n,b);let e=map.get(k);if(!e){e={n:n.trim(),b:b.trim(),need:0,needT:0,pull:0,used:0,usedC:0,stock:0,rm:0,cur:false};map.set(k,e)}return e};
+  const totQ=sum(st.orders.filter(o=>norm(o.no||'')===norm(m.no||'')&&norm(m.no||'')).map(o=>num(o.qty)||0));   // 總託工數量（同布號託工單）
   const rowNeed=EY.map(y=>{
     const wy=num(y.wy),need=(rq!==null&&wy!==null)?rq*wy:0,e=get(y.n,y.b);
-    e.need+=need;e.used+=wy!==null?(made+bm)*wy:0;e.cur=true;
+    e.need+=need;e.needT+=(totQ>0&&wy!==null)?totQ*wy:need;e.used+=wy!==null?(made+bm)*wy:0;e.usedC+=wy!==null?made*wy:0;e.cur=true;
     return {need,has:wy!==null};
   });
-  if(!noRuns)(m.runs||[]).forEach(r=>{const rm=runMade(r);(r.yarns||[]).forEach(y=>{const wy=num(y.wy);if(wy===null||!rm)return;const e=get(y.n,y.b);e.need+=rm*wy;e.used+=rm*wy;e.rm+=rm})});
+  if(!noRuns)(m.runs||[]).forEach(r=>{const rm=runMade(r);(r.yarns||[]).forEach(y=>{const wy=num(y.wy);if(wy===null||!rm)return;const e=get(y.n,y.b);e.need+=rm*wy;e.needT+=rm*wy;e.used+=rm*wy;e.usedC+=rm*wy;e.rm+=rm})});
   const one=EY.length===1?EY[0]:null;
   const put=(r,f)=>{
     const q=num(r.q)||0;if(!q)return;
@@ -967,6 +968,13 @@ function mcalc(m,noRuns){
   return {qty,rowNeed,ys,made,need:T('need'),pull:T('pull'),used:T('used'),stock:T('stock')};
 }
 function ystat(x){
+  if(x.now){                                     // NOW：所需/應餘 以「總託工／盤頭」兩種範圍呈現
+    const nT=x.needT>0?x.needT:x.need,pv=x.prev||0,uT=x.usedT!==undefined?x.usedT:x.used,uC=x.usedC||0;
+    const rem=nT>0?nT-pv-x.pull:null;                           // 剩餘未領 = 總託工所需 − 前期庫存 − 領用
+    const leftT=uT>0?x.pull+pv-uT:null;                         // 應餘（總託工）= 領用 + 前期庫存 − 整張布號已用
+    const leftC=(uT>0||uC>0)?x.pull+pv-uC:null;                 // 應餘（盤頭）  = 領用 + 前期庫存 − 這個盤頭已用
+    return {rem,left:leftT,leftC,leftT,diff:null,act:null,nT,uT};
+  }
   const rem=x.need>0?(x.now?x.need-x.pull:x.need-x.stock-x.pull):null;               // 剩餘未領 = 所需 − 前期庫存 − 領用
   const left=x.used>0?x.pull+(x.now?(x.prev||0):x.stock)-x.used:null;   // NOW：應餘 = 領用 + 前期庫存(FIN應餘) − 已用，不含 D 的庫存               // 應餘 = 領用 + 庫存 − 已用
   const diff=(x.stock>0&&left!==null)?x.stock-left:null;        // 差異 = 庫存 − 應餘
@@ -977,7 +985,14 @@ const WARN=0.75;   // 已用量達領用量的 75% 即提醒再領紗
 const warnFrom=c=>c.ys.filter(x=>x.used>0&&(x.pull<=0||x.used/x.pull>=WARN)).map(x=>({n:x.n,b:x.b,pull:x.pull,used:x.used,ratio:x.pull>0?x.used/x.pull:null}));
 const warnMsg=w=>w.ratio===null?'尚未領紗，請盡快領紗':(w.ratio>=1?'領用量已用完，請立即領紗':'已用 '+(Math.round(w.ratio*1000)/10)+'%，需再領紗');
 const nc=(v,red,grn)=>'<td class="n'+(red?' neg':grn?' pos':'')+'">'+fmt(v)+'</td>';
+const d2=(a,b,ra,rb)=>'<td class="n"><div class="d2"><i>總</i><span class="'+(ra?'neg':'')+'">'+fmt(a)+'</span></div><div class="d2"><i>盤</i><span class="'+(rb?'neg':'')+'">'+fmt(b)+'</span></div></td>';
+function statRowNow(name,x){
+  const t=ystat(x),r=(x.pull>0&&t.uT>0)?t.uT/x.pull:null;
+  return '<tr><td>'+esc(name)+'</td>'+d2(t.nT||null,x.need||null,false,false)+nc(x.prev||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)>0,t.rem!==null&&r4(t.rem)<=0)+nc(t.uT||null)+
+    d2(t.leftT,t.leftC,t.leftT!==null&&r4(t.leftT)<0,t.leftC!==null&&r4(t.leftC)<0)+'<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td></tr>';
+}
 function statRow(name,x){
+  if(x.now)return statRowNow(name,x);
   const t=ystat(x);
   return '<tr><td>'+esc(name)+'</td>'+nc(x.need||null)+nc((x.now?x.prev:x.stock)||null)+nc(x.pull||null)+nc(t.rem,t.rem!==null&&r4(t.rem)>0,t.rem!==null&&r4(t.rem)<=0)+nc(x.used||null)+nc(t.left,t.left!==null&&r4(t.left)<0)+(()=>{const r=(x.pull>0&&x.used>0)?x.used/x.pull:null;return '<td class="n'+(r!==null&&r>=WARN?' neg':'')+'">'+(r===null?'—':(Math.round(r*1000)/10)+'%')+'</td>'})()+'</tr>';
 }
@@ -1277,6 +1292,7 @@ function machBatches(m,n){
   machPairs(m).forEach(p=>{if(p.b&&norm(p.n)===k)mp.set(norm(p.b),p.b)});
   return [...mp.values()];
 }
+const YTHEAD_NOW='<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需<br><small>總託工/盤頭</small></th><th class="n">前期<br>庫存</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘<br><small>總託工/盤頭</small></th><th class="n">比例</th></tr></thead>';
 const YTHEAD='<table class="fit"><thead><tr><th>品代 批號</th><th class="n">所需</th><th class="n">前期<br>庫存</th><th class="n">領用</th><th class="n">剩餘<br>未領</th><th class="n">已用</th><th class="n">應餘</th><th class="n">比例</th></tr></thead>';
 /* FIN：這台機台最近一次完工的布（取自完工記錄） */
 function finBlock(m,id){
@@ -1288,7 +1304,6 @@ function finBlock(m,id){
   (E.pl||[]).forEach(p=>{get(p.n,p.b).pull+=num(p.q)||0});
   const hid=new Set(E.xy||[]);
   const all=[...mp.values()],rows=all.filter(e=>!hid.has(kk(e.n,e.b))),hidden=all.filter(e=>hid.has(kk(e.n,e.b)));
-  rows.forEach(e=>{m.stocks.forEach(x=>{if(kk(x.n||'',x.b||'')===kk(e.n,e.b))e.stock+=num(x.q)||0})});
   return {E,rows,hidden};
 }
 function panelHTML(id){
@@ -1336,7 +1351,7 @@ function panelHTML(id){
     '<div style="display:'+(fold.stock?'block':'none')+'">'+drow(As,m.sdraft,'庫存量 (kg)','addStock','clrStock',1)+
     '<div class="sh2">目前庫存 (kg)</div><div data-o="slist"></div></div>'+
     '<div class="sh">04｜整合</div>'+
-    '<div class="sh2" style="margin-top:6px">NOW　<span data-o="nowNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div>'+
+    '<div class="sh2" style="margin-top:6px">NOW　<span data-o="nowNo"></span></div><div style="overflow-x:auto">'+YTHEAD_NOW+'<tbody data-o="ytab"></tbody><tfoot data-o="yfoot"></tfoot></table></div>'+
     '<div class="sh2" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:10px">FIN　<span data-o="finNo"></span></div><div style="overflow-x:auto">'+YTHEAD+'<tbody data-o="ftab"></tbody><tfoot data-o="ffoot"></tfoot></table></div><div data-o="fman" style="margin-top:8px"></div></div>';
 }
 function renderMach(){renderChips();$('panel').innerHTML=panelHTML(st.sel);update()}
@@ -1476,11 +1491,16 @@ function update(){
     let vy=c.ys.filter(x=>(x.cur||x.rm)&&(x.need||x.pull||x.used||x.stock));
     if(!c.ys.some(x=>x.cur))vy=c.ys.filter(x=>x.need||x.pull||x.used||x.stock);
     const sm=f=>vy.reduce((a,x)=>a+(x[f]||0),0);
-    const fb0=finBlock(m,st.sel),prevMap=new Map();           // 前期庫存 = FIN（上一組布）留下的應餘；NOW 不扣除
-    if(fb0)fb0.rows.forEach(r=>{const l=ystat(r).left;if(l!==null&&l>0)prevMap.set(kk(r.n,r.b),l)});
-    vy.forEach(x=>{x.now=true;x.prev=prevMap.get(kk(x.n,x.b))||0});
+    const fb0=finBlock(m,st.sel),finMap=new Map();
+    if(fb0)fb0.rows.forEach(r=>finMap.set(kk(r.n,r.b),r));
+    const fbSame=!!fb0&&norm(fb0.E.fab||'')===norm(m.no||''),noBack=!(num(m.backMade)>0);
+    vy.forEach(x=>{
+      x.now=true;const fr=finMap.get(kk(x.n,x.b));
+      x.usedT=x.used+((fbSame&&noBack&&fr)?fr.used:0);                       // 同布號：上一個盤頭(FIN)的已用一併累計（有填「前面盤頭已織」則以填的為準）
+      x.prev=(fb0&&!fbSame)?(fr?Math.max(0,fr.pull-fr.used):0):x.stock;     // 前期庫存：上一組是不同布號→取 FIN 應餘；同布號/無 FIN→取 D 庫存
+    });
     pn.querySelector('[data-o="ytab"]').innerHTML=vy.map(x=>statRow(lab(x.n,x.b)||'（未填品代）',x)).join('');
-    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{now:true,need:sm('need'),prev:sm('prev'),pull:sm('pull'),used:sm('used'),stock:sm('stock'),made:0});
+    pn.querySelector('[data-o="yfoot"]').innerHTML=statRow('總計',{now:true,need:sm('need'),needT:sm('needT'),prev:sm('prev'),pull:sm('pull'),used:sm('used'),usedC:sm('usedC'),usedT:sm('usedT'),stock:sm('stock'),made:0});
     const nn=pn.querySelector('[data-o="nowNo"]');if(nn)nn.textContent=m.no.trim()?'布號 '+m.no.trim():'（尚未填布號）';
     const fb=finBlock(m,st.sel),ft=pn.querySelector('[data-o="ftab"]'),ff=pn.querySelector('[data-o="ffoot"]'),fnn=pn.querySelector('[data-o="finNo"]');
     if(ft){
